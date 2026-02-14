@@ -1,0 +1,25 @@
+# Hebrew language preset for Podcast Intelligence System
+
+language: "he"
+
+models:
+  transcription: "ivrit-ai/whisper-large-v3-turbo"
+  ner: "dicta-il/dictabert-ner"
+  sentiment: "avichr/heBERT_sentiment_analysis"
+
+filler_words:
+  - "אממ"
+  - "אההה"
+  - "כאילו"
+  - "נו"
+  - "יעני"
+  - "בגדול"
+  - "בקיצור"
+  - "נכון?"
+  - "אז"
+  - "טוב"
+  - "אוקיי"
+  - "שמע"
+  - "בעצם"
+  - "תראה"
+  - "פשוט"

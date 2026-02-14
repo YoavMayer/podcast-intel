@@ -1,0 +1,25 @@
+# English language preset for Podcast Intelligence System
+
+language: "en"
+
+models:
+  transcription: "openai/whisper-large-v3-turbo"
+  ner: "dslim/bert-base-NER"
+  sentiment: "cardiffnlp/twitter-roberta-base-sentiment-latest"
+
+filler_words:
+  - "um"
+  - "uh"
+  - "like"
+  - "you know"
+  - "I mean"
+  - "sort of"
+  - "kind of"
+  - "basically"
+  - "actually"
+  - "right"
+  - "so"
+  - "well"
+  - "okay"
+  - "literally"
+  - "honestly"

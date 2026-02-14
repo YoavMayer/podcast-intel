@@ -1,0 +1,30 @@
+# podcast.yaml -- Podcast Intelligence configuration
+# Copy this file to podcast.yaml and fill in your podcast details.
+
+podcast:
+  name: "My Podcast"
+  language: "en"          # "en", "he", or any ISO 639-1 code
+  rss_url: "https://example.com/feed.rss"
+
+speakers:
+  default:
+    - "Host Name"
+    - "Co-host Name"
+  # Per-episode overrides (optional):
+  # episodes:
+  #   42: ["Host Name", "Guest Name"]
+
+models:
+  transcription: "openai/whisper-large-v3-turbo"
+  ner: "dslim/bert-base-NER"
+  sentiment: "cardiffnlp/twitter-roberta-base-sentiment-latest"
+  embedding: "BAAI/bge-m3"
+
+branding:
+  show_name: "MY PODCAST"
+  primary_color: "#2563eb"
+  footer_text: "My Podcast Intelligence"
+
+analysis:
+  episode_dir_prefix: "episode"   # reports/episode_42/
+  episodes_json: "episodes.json"  # data/episodes.json
