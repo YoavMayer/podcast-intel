@@ -4,6 +4,24 @@ This directory contains example configurations for different types of podcasts.
 
 ## Available Examples
 
+### Sample Output
+
+See what podcast-intel produces after analyzing an episode.
+
+**Path:** `examples/sample-output/`
+
+**Files:**
+- `pqs_v3_scores.json` -- Full PQS v3 quality scores with 5 domains, 39 sub-metrics, speaker breakdown, and coaching notes
+- `pre_recording_brief_ep43.html` -- Mobile-first HTML brief that panelists review in 2 minutes before recording
+- `pipeline_results.json` -- Pipeline execution summary showing each step (RSS, download, transcribe, diarize, analyze, report)
+- `transcript_snippet.json` -- Sample transcript with word-level timestamps and speaker attribution
+
+**Open the brief in your browser:**
+
+```bash
+open examples/sample-output/pre_recording_brief_ep43.html
+```
+
 ### Quickstart
 
 A basic English tech podcast configuration to get you started.

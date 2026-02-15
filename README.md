@@ -78,9 +78,13 @@ podcast-intel report 42
 ### View results
 
 Reports are generated in `reports/episode_42/` with:
-- `one_pager.html` - Executive summary with PQS scores
+- `pqs_v3_scores.json` - Full quality scores across 5 domains and 39 sub-metrics
+- `one_pager.html` - Mobile-first pre-recording brief with coaching notes
 - `panel_chemistry.html` - Speaker dynamics and interactions
 - `transcript.json` - Full timestamped transcript with speaker labels
+- `pipeline_results.json` - Pipeline execution log
+
+**See real examples:** Check out [examples/sample-output/](examples/sample-output/) for sample artifacts from a complete analysis run.
 
 ## Configuration
 

@@ -1,0 +1,142 @@
+{
+  "episode": "Episode 42 - Season Review Special",
+  "episode_num": 42,
+  "analysis_date": "2026-02-13T14:30:00Z",
+  "framework_version": "PQS v3.0",
+
+  "composite_score": 72.4,
+  "tier": "B+",
+
+  "component_scores": {
+    "audio_quality": {
+      "score": 81.2,
+      "weight": 0.15,
+      "contribution": 12.18,
+      "sub_metrics": {
+        "snr_db": 28.5,
+        "clipping_ratio": 0.002,
+        "silence_ratio": 0.08,
+        "background_noise_level": -42.3,
+        "bitrate_kbps": 128,
+        "sample_rate_hz": 44100
+      }
+    },
+    "delivery_dynamics": {
+      "score": 68.7,
+      "weight": 0.20,
+      "contribution": 13.74,
+      "sub_metrics": {
+        "filler_rate_per_min": 4.2,
+        "speech_rate_wpm": 162,
+        "speech_rate_variance": 0.18,
+        "pause_ratio": 0.12,
+        "articulation_clarity": 0.76,
+        "energy_variance": 0.22,
+        "monotone_ratio": 0.15
+      }
+    },
+    "structure_flow": {
+      "score": 74.1,
+      "weight": 0.20,
+      "contribution": 14.82,
+      "sub_metrics": {
+        "topic_count": 5,
+        "topic_transition_smoothness": 0.71,
+        "intro_hook_score": 0.65,
+        "closing_quality": 0.80,
+        "segment_balance": 0.68,
+        "dead_air_seconds": 12,
+        "overtime_minutes": 3.2
+      }
+    },
+    "content_depth": {
+      "score": 76.3,
+      "weight": 0.25,
+      "contribution": 19.08,
+      "sub_metrics": {
+        "entity_density_per_min": 3.8,
+        "unique_entities": 24,
+        "opinion_ratio": 0.42,
+        "evidence_backed_claims": 0.35,
+        "topic_depth_score": 0.72,
+        "repetition_ratio": 0.08,
+        "vocabulary_richness": 0.64
+      }
+    },
+    "engagement_proxies": {
+      "score": 62.9,
+      "weight": 0.20,
+      "contribution": 12.58,
+      "sub_metrics": {
+        "speaker_turn_rate": 8.4,
+        "cross_talk_ratio": 0.05,
+        "question_density": 0.8,
+        "humor_markers": 3,
+        "listener_callouts": 2,
+        "debate_segments": 1,
+        "talk_time_balance_gini": 0.28
+      }
+    }
+  },
+
+  "top_3_strengths": [
+    {"metric": "Audio Quality", "score": 81.2, "detail": "Clean recording with good SNR"},
+    {"metric": "Content Depth", "score": 76.3, "detail": "Strong entity coverage and analysis"},
+    {"metric": "Closing Quality", "score": 80.0, "detail": "Good episode wrap-up with preview"}
+  ],
+
+  "top_3_bottlenecks": [
+    {"metric": "Engagement", "score": 62.9, "detail": "Low debate and cross-talk; mostly monologues"},
+    {"metric": "Filler Rate", "score": 4.2, "detail": "4.2 fillers/min is above target of 2.0"},
+    {"metric": "Intro Hook", "score": 65.0, "detail": "Weak opening; took 90 seconds to reach first topic"}
+  ],
+
+  "episode_context": {
+    "format": "panel",
+    "duration_minutes": 63.2,
+    "speaker_count": 3,
+    "recording_date": "2026-02-10",
+    "topics": [
+      "Season performance review",
+      "Player ratings",
+      "Transfer window analysis",
+      "Manager tactics",
+      "Fan Q&A"
+    ]
+  },
+
+  "speaker_breakdown": [
+    {
+      "name": "Alex",
+      "role": "host",
+      "talk_time_pct": 0.42,
+      "filler_rate": 3.1,
+      "avg_turn_length_s": 28.5,
+      "questions_asked": 12
+    },
+    {
+      "name": "Jordan",
+      "role": "co-host",
+      "talk_time_pct": 0.35,
+      "filler_rate": 5.8,
+      "avg_turn_length_s": 22.1,
+      "questions_asked": 4
+    },
+    {
+      "name": "Sam",
+      "role": "guest",
+      "talk_time_pct": 0.23,
+      "filler_rate": 3.9,
+      "avg_turn_length_s": 18.7,
+      "questions_asked": 2
+    }
+  ],
+
+  "coaching_notes": [
+    "Jordan: filler rate 5.8/min is highest on the panel. Practice replacing 'um' with a brief pause.",
+    "Alex: great question flow (12 questions) but dominates talk time at 42%. Give Sam more space.",
+    "Sam: shortest turns (18.7s avg). Encourage longer analysis segments -- the guest has expertise to share.",
+    "Team: only 1 debate segment detected. Prepare 2-3 'hot take' prompts to spark disagreement.",
+    "Structure: 3.2 minutes overtime. Use a visible timer and plan the closing at the 55-minute mark."
+  ]
+}

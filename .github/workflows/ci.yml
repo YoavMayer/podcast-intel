@@ -1,0 +1,121 @@
+# =============================================================================
+# CI Workflow -- Lint, Type Check, Test
+# =============================================================================
+#
+# Runs on every push to main and on pull requests. Tests across the full
+# supported Python matrix (3.10, 3.11, 3.12).
+#
+# Steps:
+#   1. Checkout
+#   2. Setup Python (matrix)
+#   3. Install dependencies (dev extras)
+#   4. Lint with ruff
+#   5. Type check with mypy
+#   6. Run pytest
+#
+# This workflow is also reusable via workflow_call so downstream repos
+# can include it in their CI pipelines.
+# =============================================================================
+
+name: CI
+
+on:
+  # --------------------------------------------------------------------------
+  # Push to main branch
+  # --------------------------------------------------------------------------
+  push:
+    branches: [main]
+
+  # --------------------------------------------------------------------------
+  # Pull requests targeting main
+  # --------------------------------------------------------------------------
+  pull_request:
+    branches: [main]
+
+  # --------------------------------------------------------------------------
+  # Reusable workflow -- other repos can call this
+  # --------------------------------------------------------------------------
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    name: "Python ${{ matrix.python-version }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      # Run all matrix entries even if one fails
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout repository
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. Setup Python with pip cache
+      # -----------------------------------------------------------------------
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      # -----------------------------------------------------------------------
+      # 3. Install dependencies
+      #    - Core package in editable mode
+      #    - Dev extras (ruff, mypy, pytest, pytest-cov)
+      # -----------------------------------------------------------------------
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      # -----------------------------------------------------------------------
+      # 4. Lint with ruff
+      #    Configuration is read from pyproject.toml [tool.ruff]
+      # -----------------------------------------------------------------------
+      - name: Lint with ruff
+        run: |
+          echo "::group::ruff check"
+          ruff check src/ tests/
+          echo "::endgroup::"
+
+          echo "::group::ruff format --check"
+          ruff format --check src/ tests/ || echo "::warning::Some files are not formatted. Run 'ruff format src/ tests/' to fix."
+          echo "::endgroup::"
+
+      # -----------------------------------------------------------------------
+      # 5. Type check with mypy
+      #    Configuration is read from pyproject.toml [tool.mypy]
+      #    Only runs if mypy is configured (check for [tool.mypy] section)
+      # -----------------------------------------------------------------------
+      - name: Type check with mypy
+        run: |
+          # Check if mypy configuration exists in pyproject.toml
+          if python -c "
+          import tomllib
+          with open('pyproject.toml', 'rb') as f:
+              config = tomllib.load(f)
+          assert 'mypy' in config.get('tool', {})
+          " 2>/dev/null; then
+            echo "mypy configuration found -- running type checks"
+            mypy src/podcast_intel/ --ignore-missing-imports
+          else
+            echo "::notice::No [tool.mypy] section in pyproject.toml -- skipping type check"
+          fi
+
+      # -----------------------------------------------------------------------
+      # 6. Run pytest
+      #    Configuration is read from pyproject.toml [tool.pytest.ini_options]
+      # -----------------------------------------------------------------------
+      - name: Run tests with pytest
+        run: |
+          pytest --tb=short -q

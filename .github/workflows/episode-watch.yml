@@ -1,0 +1,273 @@
+# =============================================================================
+# Episode Watch Workflow
+# =============================================================================
+#
+# Polls the podcast RSS feed for new episodes and optionally triggers
+# the analysis pipeline when new content is detected.
+#
+# Trigger modes:
+#   - Cron:           Runs every 15 minutes (configurable via podcast.yaml)
+#   - Manual:         Trigger from GitHub Actions UI (workflow_dispatch)
+#   - Reusable:       Other repos can call this via workflow_call
+#
+# Required secrets:
+#   - PODCAST_INTEL_RSS_URL  (optional -- falls back to podcast.yaml rss_url)
+#
+# Outputs:
+#   - JSON watch result uploaded as artifact
+#   - Analysis reports uploaded as artifact (if new episodes found)
+#   - GitHub Actions job summary with episode details
+# =============================================================================
+
+name: Episode Watch
+
+on:
+  # --------------------------------------------------------------------------
+  # Scheduled trigger: every 15 minutes
+  # Override in podcast.yaml under triggers.rss_watch.cron
+  # --------------------------------------------------------------------------
+  schedule:
+    - cron: "*/15 * * * *"
+
+  # --------------------------------------------------------------------------
+  # Manual trigger from Actions UI
+  # --------------------------------------------------------------------------
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview mode -- detect episodes but skip analysis"
+        required: false
+        default: "false"
+        type: boolean
+      auto_analyze:
+        description: "Run analysis pipeline on new episodes"
+        required: false
+        default: "true"
+        type: boolean
+
+  # --------------------------------------------------------------------------
+  # Reusable workflow -- private repos can call this with workflow_call
+  # --------------------------------------------------------------------------
+  workflow_call:
+    inputs:
+      dry_run:
+        description: "Preview mode -- detect episodes but skip analysis"
+        required: false
+        default: false
+        type: boolean
+      auto_analyze:
+        description: "Run analysis pipeline on new episodes"
+        required: false
+        default: true
+        type: boolean
+    secrets:
+      PODCAST_INTEL_RSS_URL:
+        description: "RSS feed URL (falls back to podcast.yaml if not set)"
+        required: false
+
+# ---------------------------------------------------------------------------
+# Permissions: write access needed to upload artifacts and write summaries
+# ---------------------------------------------------------------------------
+permissions:
+  contents: read
+  actions: write
+
+# ---------------------------------------------------------------------------
+# Prevent overlapping runs of the same workflow
+# ---------------------------------------------------------------------------
+concurrency:
+  group: episode-watch-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    name: Check RSS Feed
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Map secrets + inputs to environment variables
+    env:
+      # RSS URL: prefer secret, fall back to podcast.yaml
+      PODCAST_INTEL_RSS_URL: ${{ secrets.PODCAST_INTEL_RSS_URL || '' }}
+
+    outputs:
+      has_new_episodes: ${{ steps.watch.outputs.has_new_episodes }}
+      episode_count: ${{ steps.watch.outputs.episode_count }}
+      watch_result: ${{ steps.watch.outputs.result_json }}
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout repository
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # -----------------------------------------------------------------------
+      # 2. Setup Python 3.12
+      # -----------------------------------------------------------------------
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # -----------------------------------------------------------------------
+      # 3. Install podcast-intel with all optional dependencies
+      # -----------------------------------------------------------------------
+      - name: Install podcast-intel
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+
+      # -----------------------------------------------------------------------
+      # 4. Run the RSS watcher in one-shot mode with JSON output
+      # -----------------------------------------------------------------------
+      - name: Check for new episodes
+        id: watch
+        run: |
+          set +e  # Don't exit on error -- we parse the result ourselves
+
+          # Determine flags from workflow inputs (manual or reusable call)
+          DRY_RUN="${{ inputs.dry_run || 'false' }}"
+          EXTRA_FLAGS=""
+          if [ "$DRY_RUN" = "true" ]; then
+            EXTRA_FLAGS="--dry-run"
+          fi
+
+          # Run the watcher and capture JSON output
+          RESULT=$(python -m podcast_intel.cli watch --once --output-json $EXTRA_FLAGS 2>&1)
+          EXIT_CODE=$?
+
+          # Save full result to file for artifact upload
+          echo "$RESULT" > watch-result.json
+
+          # Parse key fields from JSON output
+          HAS_NEW=$(echo "$RESULT" | python -c "import sys,json; d=json.load(sys.stdin); print(str(d.get('has_new_episodes', False)).lower())" 2>/dev/null || echo "false")
+          EP_COUNT=$(echo "$RESULT" | python -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('episodes', [])))" 2>/dev/null || echo "0")
+
+          # Set outputs for downstream steps and jobs
+          echo "has_new_episodes=$HAS_NEW" >> "$GITHUB_OUTPUT"
+          echo "episode_count=$EP_COUNT" >> "$GITHUB_OUTPUT"
+
+          # Store result JSON (truncated for output limits)
+          RESULT_SHORT=$(echo "$RESULT" | head -c 60000)
+          {
+            echo "result_json<<RESULT_EOF"
+            echo "$RESULT_SHORT"
+            echo "RESULT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "::notice::Watch complete: has_new=$HAS_NEW, count=$EP_COUNT"
+
+          # Propagate real errors (not "no new episodes")
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "::warning::Watch exited with code $EXIT_CODE"
+          fi
+
+      # -----------------------------------------------------------------------
+      # 5. Run analysis pipeline if new episodes were found
+      # -----------------------------------------------------------------------
+      - name: Run analysis pipeline
+        if: |
+          steps.watch.outputs.has_new_episodes == 'true' &&
+          (inputs.dry_run != true && inputs.dry_run != 'true') &&
+          (inputs.auto_analyze != false && inputs.auto_analyze != 'false')
+        run: |
+          echo "New episodes detected -- running analysis pipeline..."
+
+          # Run the watcher again with --auto-analyze to trigger ingestion
+          python -m podcast_intel.cli watch --once --auto-analyze || true
+
+          echo "::notice::Analysis pipeline completed."
+
+      # -----------------------------------------------------------------------
+      # 6. Upload watch result as artifact
+      # -----------------------------------------------------------------------
+      - name: Upload watch result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-result
+          path: watch-result.json
+          retention-days: 30
+
+      # -----------------------------------------------------------------------
+      # 6b. Upload analysis reports as artifact (if any were generated)
+      # -----------------------------------------------------------------------
+      - name: Upload analysis reports
+        if: steps.watch.outputs.has_new_episodes == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: episode-reports
+          path: |
+            reports/
+            data/
+          retention-days: 90
+          if-no-files-found: ignore
+
+      # -----------------------------------------------------------------------
+      # 7. Create GitHub Actions job summary
+      # -----------------------------------------------------------------------
+      - name: Create job summary
+        if: always()
+        run: |
+          python - <<'PYEOF'
+          import json, os, datetime
+
+          # Load the watch result
+          try:
+              with open("watch-result.json", "r") as f:
+                  result = json.load(f)
+          except Exception:
+              result = {}
+
+          summary_lines = []
+          summary_lines.append("## Episode Watch Results")
+          summary_lines.append("")
+          summary_lines.append(f"**Run time:** {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+          summary_lines.append("")
+
+          # Feed info
+          feed_title = result.get("feed_title", "Unknown")
+          total_eps = result.get("total_feed_episodes", "?")
+          known_guids = result.get("known_guid_count", "?")
+          summary_lines.append(f"**Feed:** {feed_title}")
+          summary_lines.append(f"**Total episodes in feed:** {total_eps}")
+          summary_lines.append(f"**Known episodes:** {known_guids}")
+          summary_lines.append("")
+
+          # New episodes
+          episodes = result.get("episodes", [])
+          has_new = result.get("has_new_episodes", False)
+
+          if has_new and episodes:
+              summary_lines.append(f"### New Episodes Found ({len(episodes)})")
+              summary_lines.append("")
+              summary_lines.append("| Title | Duration | GUID |")
+              summary_lines.append("|-------|----------|------|")
+              for ep in episodes:
+                  title = ep.get("title", "Untitled")
+                  duration = ep.get("duration", "--")
+                  guid = ep.get("guid", "")[:40]
+                  summary_lines.append(f"| {title} | {duration} | `{guid}` |")
+              summary_lines.append("")
+          else:
+              summary_lines.append("No new episodes found.")
+              summary_lines.append("")
+
+          # Errors
+          errors = result.get("errors", [])
+          if errors:
+              summary_lines.append("### Errors")
+              summary_lines.append("")
+              for err in errors:
+                  summary_lines.append(f"- {err}")
+              summary_lines.append("")
+
+          # Write to GITHUB_STEP_SUMMARY
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null")
+          with open(summary_path, "a") as f:
+              f.write("\n".join(summary_lines))
+          PYEOF

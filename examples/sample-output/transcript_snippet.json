@@ -1,0 +1,60 @@
+[
+  {
+    "start": 0.0,
+    "end": 3.24,
+    "text": "Welcome back to Tech Talk Weekly, episode 42.",
+    "speaker": "Alex",
+    "words": [
+      {"start": 0.0, "end": 0.42, "word": "Welcome", "probability": 0.98},
+      {"start": 0.42, "end": 0.68, "word": "back", "probability": 0.97},
+      {"start": 0.68, "end": 0.82, "word": "to", "probability": 0.99},
+      {"start": 0.82, "end": 1.15, "word": "Tech", "probability": 0.95},
+      {"start": 1.15, "end": 1.42, "word": "Talk", "probability": 0.96},
+      {"start": 1.42, "end": 1.95, "word": "Weekly,", "probability": 0.94},
+      {"start": 2.10, "end": 2.65, "word": "episode", "probability": 0.99},
+      {"start": 2.70, "end": 3.24, "word": "42.", "probability": 0.98}
+    ]
+  },
+  {
+    "start": 3.50,
+    "end": 8.12,
+    "text": "Today we're doing our big season review. Jordan, what's your overall take?",
+    "speaker": "Alex",
+    "words": []
+  },
+  {
+    "start": 8.50,
+    "end": 15.80,
+    "text": "Honestly, it's been a rollercoaster. The first half was incredible, but the wheels came off in January.",
+    "speaker": "Jordan",
+    "words": []
+  },
+  {
+    "start": 16.20,
+    "end": 22.45,
+    "text": "I'd push back on that a bit. The underlying metrics were actually improving even during the rough patch.",
+    "speaker": "Sam",
+    "words": []
+  },
+  {
+    "start": 22.80,
+    "end": 28.90,
+    "text": "That's a fair point. The xG numbers tell a different story than the results, don't they?",
+    "speaker": "Alex",
+    "words": []
+  },
+  {
+    "start": 29.10,
+    "end": 36.50,
+    "text": "Exactly. And if you look at the expected points model, we should have been about six points better off.",
+    "speaker": "Sam",
+    "words": []
+  },
+  {
+    "start": 37.00,
+    "end": 42.80,
+    "text": "Six points! That's the difference between where we are and a Champions League spot. Unbelievable.",
+    "speaker": "Jordan",
+    "words": []
+  }
+]

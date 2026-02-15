@@ -1,0 +1,61 @@
+{
+  "episode": 42,
+  "pipeline_version": "podcast-intel 0.1.0",
+  "started_at": "2026-02-13T14:00:00Z",
+  "completed_at": "2026-02-13T14:32:18Z",
+  "total_time_s": 1938,
+  "total_time_min": 32.3,
+
+  "steps": {
+    "rss": {
+      "status": "ok",
+      "title": "Episode 42 - Season Review Special",
+      "found_on_attempt": 1
+    },
+    "register": {
+      "status": "ok"
+    },
+    "download": {
+      "status": "ok",
+      "size_mb": 58.4,
+      "duration_s": 12.3
+    },
+    "transcribe": {
+      "status": "ok",
+      "model": "openai/whisper-large-v3-turbo",
+      "device": "cuda",
+      "segments": 847,
+      "duration_s": 180.5,
+      "language": "en",
+      "language_confidence": 0.98
+    },
+    "diarization": {
+      "status": "ok",
+      "method": "pyannote",
+      "speakers_detected": 3,
+      "total_segments": 312,
+      "processing_time_s": 245.8
+    },
+    "metrics": {
+      "audio": {"status": "ok"},
+      "delivery": {"status": "ok"},
+      "structure": {"status": "ok"},
+      "content": {"status": "ok"},
+      "engagement": {"status": "ok"}
+    },
+    "reports": {
+      "one_pager": {"status": "ok", "path": "reports/one_pagers/pre_recording_brief_ep43.html"},
+      "pqs_scores": {"status": "ok", "path": "reports/episode_42/pqs_v3_scores.json"}
+    }
+  },
+
+  "output_files": [
+    "reports/episode_42/transcript.json",
+    "reports/episode_42/transcript.txt",
+    "reports/episode_42/diarization/speaker_segments.json",
+    "reports/episode_42/diarization/timeline.json",
+    "reports/episode_42/pqs_v3_scores.json",
+    "reports/episode_42/pipeline_results.json",
+    "reports/one_pagers/pre_recording_brief_ep43.html"
+  ]
+}
