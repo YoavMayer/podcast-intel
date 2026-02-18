@@ -26,6 +26,8 @@ from podcast_intel.config import get_config
 # ---------------------------------------------------------------------------
 # English segment templates organized by topic category.
 # Curly-brace placeholders are filled at generation time.
+# NOTE: The mock data uses sports/football examples for demonstration purposes.
+# The podcast-intel framework itself is domain-agnostic.
 # ---------------------------------------------------------------------------
 
 MATCH_ANALYSIS_TEMPLATES = [
@@ -248,7 +250,7 @@ SAM_ANALYTICAL_TEMPLATES = [
     "If you run a regression analysis on the performances, there's a clear positive trend",
 ]
 
-# English terms common in football analysis
+# English terms used in mock data templates (sports examples for demonstration purposes)
 ENGLISH_TERMS = [
     "Premier League", "top 4", "VAR", "pressing", "build-up play",
     "set pieces", "counter-attack", "xG", "clean sheet", "hat-trick",
@@ -333,7 +335,7 @@ class MockTranscriber(TranscriptionInterface):
     - Multiple speakers (2-3 per episode)
     - Realistic timestamps and durations
     - Natural filler words with speaker-specific patterns
-    - Football/podcast terminology
+    - Topic-specific terminology (mock data uses sports examples for demonstration)
 
     Example:
         >>> transcriber = MockTranscriber(num_speakers=3)
@@ -516,23 +518,6 @@ class MockTranscriber(TranscriptionInterface):
 
         Returns:
             Text segment string
-        """
-        # Alias for backwards compatibility
-        return self.generate_hebrew_segment(speaker_id)
-
-    def generate_hebrew_segment(self, speaker_id: int) -> str:
-        """
-        Generate realistic text segment with natural speech patterns.
-
-        Selects templates appropriate to the speaker's style, fills
-        placeholders with entities, and injects filler words
-        according to the speaker's filler distribution.
-
-        Args:
-            speaker_id: Speaker index (0, 1, or 2)
-
-        Returns:
-            Text with natural speech patterns
         """
         profile = self.speakers[speaker_id]
 

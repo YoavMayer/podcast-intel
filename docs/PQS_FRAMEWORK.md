@@ -20,10 +20,10 @@ PQS = 0.10 × Audio + 0.25 × Delivery + 0.20 × Structure
 | Domain | Weight | Focus | Sub-metrics |
 |--------|--------|-------|-------------|
 | **Audio Quality** | 10% | Technical audio production | 5 |
-| **Delivery** | 25% | Speaking quality and clarity | 9 |
-| **Structure** | 20% | Episode organization | 8 |
-| **Content** | 25% | Information quality | 10 |
-| **Engagement** | 20% | Listener retention signals | 7 |
+| **Delivery & Dynamics** | 25% | Speaking quality and fluency | 9 |
+| **Structure & Flow** | 20% | Episode organization | 8 |
+| **Content Depth** | 25% | Information quality and density | 8 |
+| **Engagement Proxies** | 20% | Listener retention signals | 9 |
 
 ## 1. Audio Quality (10%)
 
@@ -42,18 +42,19 @@ Technical audio production metrics.
 ### Scoring Function
 
 ```python
-def score_audio_quality(metrics):
+def compute_audio_domain(metrics):
+    # Expected keys: lufs, snr_db, clip_pct, lra_db, speech_band_pct
     loudness = score_loudness_compliance(metrics['lufs'])
     snr = score_signal_to_noise(metrics['snr_db'])
     clipping = score_clipping_index(metrics['clip_pct'])
-    dynamic = score_loudness_range(metrics['loudness_range_lu'])
-    spectral = score_spectral_balance(metrics['spectral_balance'])
+    lra = score_loudness_range(metrics['lra_db'])
+    spectral = score_spectral_balance(metrics['speech_band_pct'])
 
     return (
         0.30 * loudness +
         0.25 * snr +
         0.15 * clipping +
-        0.15 * dynamic +
+        0.15 * lra +
         0.15 * spectral
     )
 ```
@@ -66,98 +67,85 @@ def score_audio_quality(metrics):
 - **40-59**: Acceptable, noticeable issues
 - **0-39**: Poor quality, needs improvement
 
-## 2. Delivery (25%)
+## 2. Delivery & Dynamics (25%)
 
-Speaking quality, pace, and vocal characteristics.
+Speaking fluency, filler management, and pacing dynamics.
 
 ### Sub-metrics (9 total)
 
 | Metric | Weight | Description | Target |
 |--------|--------|-------------|--------|
-| **Speaking Pace** | 20% | Words per minute | 140-180 wpm |
-| **Filler Word Rate** | 18% | Filler words per 100 words | < 3 per 100 |
-| **Vocal Energy** | 15% | Average RMS energy (dB) | -25 to -20 dB |
-| **Pitch Variety** | 12% | Fundamental frequency standard deviation | > 20 Hz |
-| **Pause Quality** | 12% | Natural pause rate and duration | 8-15% silence |
-| **Articulation Clarity** | 10% | Confidence scores from transcription | > 0.85 |
-| **Vocal Consistency** | 8% | Energy variance across speakers | < 5 dB |
-| **Interruption Rate** | 3% | Interruptions per minute | < 2 per min |
-| **Overlap Percentage** | 2% | Speech overlap percentage | < 5% |
+| **Filler Rate** | 20% | Filler words as % of total words | < 2.5% |
+| **Filler Trajectory** | 16% | Quarter-over-quarter filler-rate change (negative = improving) | < 0% |
+| **Core Filler Rate** | 12% | Core hesitation fillers (um, uh) as % | < 0.5% |
+| **Silence Density** | 12% | Non-speech time as % of episode duration | < 1.5% |
+| **WPM Consistency** | 12% | Words-per-minute coefficient of variation (%) | ~5% (inverted-U) |
+| **Monotony Risk** | 10% | Segment-level WPM variability (CV) | ~0.22 (inverted-U) |
+| **Dead Air Count** | 8% | Silences >5 s per hour of content | < 0.5/hr |
+| **Interruption Rate** | 5% | Cross-speaker interruptions per hour | ~5/hr (inverted-U) |
+| **Hesitation Rate** | 5% | Within-speaker hesitations per hour | < 2/hr |
 
 ### Scoring Function
 
 ```python
-def score_delivery(metrics):
-    pace = score_speaking_pace(metrics['wpm'])
-    fillers = score_filler_rate(metrics['filler_per_100'])
-    energy = score_vocal_energy(metrics['avg_rms_db'])
-    pitch = score_pitch_variety(metrics['f0_std_hz'])
-    pauses = score_pause_quality(metrics['silence_pct'])
-    clarity = score_articulation(metrics['avg_confidence'])
-    consistency = score_vocal_consistency(metrics['energy_variance'])
-    interruptions = score_interruptions(metrics['interruptions_per_min'])
-    overlap = score_overlap(metrics['overlap_pct'])
-
+def compute_delivery_domain(metrics):
+    # Expected keys: filler_rate, core_filler_rate, silence_density,
+    #   dead_air_count, wpm_consistency, filler_trajectory,
+    #   monotony_risk, interruption_rate, hesitation_rate
     return (
-        0.20 * pace +
-        0.18 * fillers +
-        0.15 * energy +
-        0.12 * pitch +
-        0.12 * pauses +
-        0.10 * clarity +
-        0.08 * consistency +
-        0.03 * interruptions +
-        0.02 * overlap
+        0.20 * score_filler_rate(metrics['filler_rate']) +
+        0.16 * score_filler_trajectory(metrics['filler_trajectory']) +
+        0.12 * score_core_filler_rate(metrics['core_filler_rate']) +
+        0.12 * score_silence_density(metrics['silence_density']) +
+        0.12 * score_wpm_consistency(metrics['wpm_consistency']) +
+        0.10 * score_monotony_risk(metrics['monotony_risk']) +
+        0.08 * score_dead_air_count(metrics['dead_air_count']) +
+        0.05 * score_interruption_rate(metrics['interruption_rate']) +
+        0.05 * score_hesitation_rate(metrics['hesitation_rate'])
     )
 ```
 
 ### Interpretation
 
-- **90-100**: Exceptional speaking quality, engaging and clear
-- **75-89**: Professional delivery, minimal issues
-- **60-74**: Good delivery, some room for improvement
-- **40-59**: Acceptable, noticeable filler words or pacing issues
+- **90-100**: Exceptional fluency, minimal fillers, dynamic pacing
+- **75-89**: Professional delivery, occasional fillers
+- **60-74**: Good delivery, some filler/pacing issues
+- **40-59**: Acceptable, noticeable filler words or dead air
 - **0-39**: Poor delivery, needs significant improvement
 
-## 3. Structure (20%)
+## 3. Structure & Flow (20%)
 
-Episode organization and pacing.
+Episode organization, pacing, and structural elements.
 
 ### Sub-metrics (8 total)
 
 | Metric | Weight | Description | Target |
 |--------|--------|-------------|--------|
-| **Intro Quality** | 20% | Intro length and energy | 30-90 sec |
-| **Outro Quality** | 15% | Outro presence and length | 15-60 sec |
-| **Segment Balance** | 18% | Even distribution of topics | Even splits |
-| **Topic Transitions** | 15% | Smooth transitions between topics | Clear |
-| **Pacing Consistency** | 12% | Variance in speaking pace | < 20 wpm |
-| **Time Structure** | 10% | Episode length appropriateness | 30-60 min |
-| **Content Density** | 8% | Information per minute | Balanced |
-| **Narrative Flow** | 2% | Logical progression | Coherent |
+| **Duration Fit** | 18.75% | Episode duration sweet spot | 55-65 min |
+| **Opening Tightness** | 18.75% | Q1 silence ratio vs rest of episode (1.0 = parity) | <= 1.0 |
+| **Fragmentation** | 15% | Fragmentation index (%), lower = better coherence | < 1% |
+| **Segment Balance** | 11.25% | Speaker talk-time balance (CV), lower = more balanced | < 0.02 |
+| **Monologue Depth** | 11.25% | Extended monologue share (%) | ~8% (inverted-U) |
+| **Transition Quality** | 10% | Transition quality score (0-10 scale) | >= 7 |
+| **Intro Structure** | 8% | Intro structure score (0-5 scale) | >= 4 |
+| **Closing Quality** | 7% | Closing elements present (0-5: summary, callback, goodbye, preview, CTA) | >= 4 |
 
 ### Scoring Function
 
 ```python
-def score_structure(metrics):
-    intro = score_intro_quality(metrics['intro_seconds'], metrics['intro_energy'])
-    outro = score_outro_quality(metrics['outro_seconds'])
-    segments = score_segment_balance(metrics['segment_durations'])
-    transitions = score_transitions(metrics['transition_quality'])
-    pacing = score_pacing_consistency(metrics['wpm_variance'])
-    timing = score_time_structure(metrics['duration_minutes'])
-    density = score_content_density(metrics['info_per_minute'])
-    flow = score_narrative_flow(metrics['flow_score'])
-
+def compute_structure_domain(metrics):
+    # Expected keys: duration_fit, segment_balance, fragmentation,
+    #   monologue_depth, opening_tightness, transition_quality,
+    #   closing_quality, intro_structure
     return (
-        0.20 * intro +
-        0.15 * outro +
-        0.18 * segments +
-        0.15 * transitions +
-        0.12 * pacing +
-        0.10 * timing +
-        0.08 * density +
-        0.02 * flow
+        0.1875 * score_duration_fit(metrics['duration_fit']) +
+        0.1875 * score_opening_tightness(metrics['opening_tightness']) +
+        0.15   * score_fragmentation(metrics['fragmentation']) +
+        0.1125 * score_segment_balance(metrics['segment_balance']) +
+        0.1125 * score_monologue_depth(metrics['monologue_depth']) +
+        0.10   * score_transition_quality(metrics['transition_quality']) +
+        0.08   * score_intro_structure(metrics['intro_structure']) +
+        0.07   * score_closing_quality(metrics['closing_quality'])
     )
 ```
 
@@ -169,108 +157,95 @@ def score_structure(metrics):
 - **40-59**: Acceptable, could use better organization
 - **0-39**: Poor structure, disorganized
 
-## 4. Content (25%)
+## 4. Content Depth (25%)
 
-Information quality, depth, and relevance.
+Information quality, analytical depth, and topic coverage.
 
-### Sub-metrics (10 total)
+### Sub-metrics (8 total)
 
 | Metric | Weight | Description | Target |
 |--------|--------|-------------|--------|
-| **Topic Depth** | 20% | Average discussion time per topic | 5-15 min |
-| **Entity Diversity** | 18% | Unique entities mentioned | > 20 |
-| **Domain Relevance** | 15% | Domain-specific entity density | > 10% |
-| **Information Density** | 12% | Entities per 100 words | 3-8 |
-| **Topic Completion** | 10% | Percentage of topics fully covered | > 80% |
-| **Factual Accuracy** | 10% | Verifiable claims vs total claims | > 90% |
-| **Expert Language** | 8% | Technical term usage | Appropriate |
-| **Citation Quality** | 4% | Sources and references | Present |
-| **Insight Originality** | 2% | Novel insights vs common knowledge | Some |
-| **Takeaway Clarity** | 1% | Clear actionable takeaways | 3-5 |
+| **Analytical Depth Ratio** | 21.875% | Analytical segments as % of total | >= 12% |
+| **Content Words per Minute** | 17.5% | Content words per minute (excluding fillers) | >= 120 cwpm |
+| **Discussion Density** | 17.5% | Words per second of discussion | >= 2.2 w/s |
+| **Topic Coverage Breadth** | 13.125% | Topic diversity (Shannon entropy) | >= 0.90 |
+| **Domain Entity Density** | 8% | Domain-related entity mentions per 1000 words | >= 5/kw |
+| **Tactical Depth Density** | 8% | Tactical concept mentions per 1000 words | >= 2.5/kw |
+| **Match Reference Density** | 7% | Event references per 1000 words | >= 3/kw |
+| **Opinion-Fact Ratio** | 7% | Opinion-to-fact ratio (balanced = best) | ~1.0 (inverted-U) |
 
 ### Scoring Function
 
 ```python
-def score_content(metrics):
-    depth = score_topic_depth(metrics['avg_topic_duration_min'])
-    diversity = score_entity_diversity(metrics['unique_entities'])
-    relevance = score_domain_relevance(metrics['domain_entity_pct'])
-    density = score_info_density(metrics['entities_per_100_words'])
-    completion = score_topic_completion(metrics['completed_topics_pct'])
-    accuracy = score_factual_accuracy(metrics['verifiable_claims_pct'])
-    expertise = score_expert_language(metrics['technical_term_rate'])
-    citations = score_citations(metrics['citation_count'])
-    originality = score_originality(metrics['novel_insight_pct'])
-    takeaways = score_takeaways(metrics['takeaway_count'])
-
+def compute_content_domain(metrics):
+    # Expected keys: analytical_depth_ratio, content_words_per_minute,
+    #   topic_coverage_breadth, discussion_density, domain_entity_density,
+    #   match_reference_density, tactical_depth_density, opinion_fact_ratio
     return (
-        0.20 * depth +
-        0.18 * diversity +
-        0.15 * relevance +
-        0.12 * density +
-        0.10 * completion +
-        0.10 * accuracy +
-        0.08 * expertise +
-        0.04 * citations +
-        0.02 * originality +
-        0.01 * takeaways
+        0.21875 * score_analytical_depth_ratio(metrics['analytical_depth_ratio']) +
+        0.175   * score_content_words_per_minute(metrics['content_words_per_minute']) +
+        0.175   * score_discussion_density(metrics['discussion_density']) +
+        0.13125 * score_topic_coverage_breadth(metrics['topic_coverage_breadth']) +
+        0.08    * score_domain_entity_density(metrics['domain_entity_density']) +
+        0.08    * score_tactical_depth_density(metrics['tactical_depth_density']) +
+        0.07    * score_match_reference_density(metrics['match_reference_density']) +
+        0.07    * score_opinion_fact_ratio(metrics['opinion_fact_ratio'])
     )
 ```
 
 ### Interpretation
 
-- **90-100**: Exceptional content, deep insights, highly informative
-- **75-89**: Strong content, good depth and relevance
-- **60-74**: Good content, some superficiality
-- **40-59**: Acceptable, lacks depth or focus
-- **0-39**: Poor content, shallow or off-topic
+- **90-100**: Exceptional content, deep analysis, dense and varied
+- **75-89**: Strong content, good depth and coverage
+- **60-74**: Good content, some areas lack depth
+- **40-59**: Acceptable, shallow or narrow focus
+- **0-39**: Poor content, low information density
 
-## 5. Engagement (20%)
+## 5. Engagement Proxies (20%)
 
-Listener retention and interaction signals.
+Listener retention signals and conversational dynamics.
 
-### Sub-metrics (7 total)
+### Sub-metrics (9 total)
 
 | Metric | Weight | Description | Target |
 |--------|--------|-------------|--------|
-| **Highlight Moments** | 25% | Number of engaging highlights | 5-10 |
-| **Panel Chemistry** | 22% | Speaker interaction quality | Balanced |
-| **Sentiment Variance** | 18% | Emotional range and dynamics | Varied |
-| **Energy Peaks** | 15% | Moments of high energy | 3-5 |
-| **Question Engagement** | 10% | Questions asked and answered | > 5 |
-| **Humor Indicators** | 8% | Laughter and light moments | Present |
-| **Audience Hooks** | 2% | Compelling openings/cliffhangers | Present |
+| **Fatigue Signal** | 17.5% | Filler-rate change per quarter (negative = improving) | < -0.3 |
+| **Conversational Energy** | 14% | Speaker turns per minute | >= 6/min |
+| **Q4 Sustain** | 14% | Q4 quality relative to episode average (1.0 = parity) | <= 0.85 |
+| **Crosstalk Ratio** | 14% | Overlapping speech as % of total | >= 20% |
+| **Debate Indicator** | 10.5% | Debate balance ratio | ~4.5 (inverted-U) |
+| **Sentiment Flow Volatility** | 8% | Emotional dynamics index | ~0.7 (inverted-U) |
+| **Memorable Moment Density** | 8% | High-energy moments per 10-minute block | >= 5 |
+| **Hook Score** | 7% | Opening hooks detected in first 5 min | >= 3 |
+| **Drop-off Risk Index** | 7% | Listener drop-off risk (lower = better retention) | < 3 |
 
 ### Scoring Function
 
 ```python
-def score_engagement(metrics):
-    highlights = score_highlights(metrics['highlight_count'])
-    chemistry = score_chemistry(metrics['balance_score'])
-    sentiment = score_sentiment_variance(metrics['sentiment_std'])
-    energy = score_energy_peaks(metrics['energy_peak_count'])
-    questions = score_questions(metrics['question_count'])
-    humor = score_humor(metrics['laughter_count'])
-    hooks = score_hooks(metrics['hook_score'])
-
+def compute_engagement_domain(metrics):
+    # Expected keys: conversational_energy, debate_indicator, q4_sustain,
+    #   crosstalk_ratio, fatigue_signal, sentiment_flow_volatility,
+    #   hook_score, memorable_moment_density, dropoff_risk_index
     return (
-        0.25 * highlights +
-        0.22 * chemistry +
-        0.18 * sentiment +
-        0.15 * energy +
-        0.10 * questions +
-        0.08 * humor +
-        0.02 * hooks
+        0.175  * score_fatigue_signal(metrics['fatigue_signal']) +
+        0.14   * score_conversational_energy(metrics['conversational_energy']) +
+        0.14   * score_q4_sustain(metrics['q4_sustain']) +
+        0.14   * score_crosstalk_ratio(metrics['crosstalk_ratio']) +
+        0.105  * score_debate_indicator(metrics['debate_indicator']) +
+        0.08   * score_sentiment_flow_volatility(metrics['sentiment_flow_volatility']) +
+        0.08   * score_memorable_moment_density(metrics['memorable_moment_density']) +
+        0.07   * score_hook_score(metrics['hook_score']) +
+        0.07   * score_dropoff_risk_index(metrics['dropoff_risk_index'])
     )
 ```
 
 ### Interpretation
 
-- **90-100**: Highly engaging, compelling content
-- **75-89**: Engaging, good dynamics
+- **90-100**: Highly engaging, strong dynamics, sustained energy
+- **75-89**: Engaging, good conversational flow
 - **60-74**: Moderately engaging
-- **40-59**: Some engaging moments, inconsistent
-- **0-39**: Low engagement, monotonous
+- **40-59**: Some engaging moments, inconsistent energy
+- **0-39**: Low engagement, monotonous or fatigued
 
 ## Overall PQS Interpretation
 
@@ -359,16 +334,18 @@ Example:
 
 Within the weak domain (Delivery), check sub-metrics:
 
-- Speaking Pace: 85 ✓
-- Filler Word Rate: 45 ⚠️ (too many fillers)
-- Vocal Energy: 72 ✓
-- Pitch Variety: 55 ⚠️ (monotone)
+- Filler Rate: 45 ⚠️ (too many fillers)
+- Filler Trajectory: 30 ⚠️ (getting worse each quarter)
+- WPM Consistency: 85 ✓
+- Monotony Risk: 55 ⚠️ (low pacing variation)
+- Silence Density: 90 ✓
 
 ### Step 3: Take Action
 
 Based on sub-metrics:
-1. **Reduce filler words**: Practice awareness, use pauses instead
-2. **Increase pitch variety**: Vary emphasis, use inflection
+1. **Reduce filler words**: Practice awareness, use deliberate pauses instead
+2. **Improve filler trajectory**: Track filler rate per quarter, aim for downward trend
+3. **Vary pacing**: Use intentional speed changes for emphasis
 
 ### Step 4: Track Progress
 
@@ -428,9 +405,11 @@ if not has_diarization:
 ## Version Changelog
 
 ### v3.0 (Current)
-- Added Audio Quality domain (5 new metrics)
-- Expanded Content domain (4 new metrics)
-- Refined Engagement domain (3 new metrics)
+- Added Audio Quality domain (5 sub-metrics)
+- Delivery: 9 sub-metrics focused on fluency and filler management
+- Structure: 8 sub-metrics for episode flow and organization
+- Content: 8 sub-metrics for depth, density, and coverage
+- Engagement: 9 sub-metrics for retention and dynamics
 - Total: 39 sub-metrics across 5 domains
 
 ### v2.1

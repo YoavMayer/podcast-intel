@@ -2,9 +2,10 @@
 Named entity recognition pipeline.
 
 Performs NER to detect:
-- PERSON: Players, managers, pundits
-- ORGANIZATION: Clubs, federations
-- EVENT: Matches, competitions
+- PERSON: Hosts, guests, public figures
+- ORGANIZATION: Companies, institutions, groups
+- LOCATION: Cities, countries, venues
+- EVENT: Conferences, releases, notable occurrences
 - Other relevant entities
 
 The NER model is configurable via language presets. For English,
@@ -35,7 +36,7 @@ class NERPipeline:
         self,
         model: str = "dslim/bert-base-NER",
         device: str = "cuda",
-        football_dict_path: Optional[Path] = None
+        custom_entity_dict_path: Optional[Path] = None
     ):
         """
         Initialize NER pipeline.
@@ -43,11 +44,11 @@ class NERPipeline:
         Args:
             model: NER model identifier (HuggingFace model ID)
             device: Device for inference (cuda/cpu)
-            football_dict_path: Optional path to custom entity dictionary
+            custom_entity_dict_path: Optional path to custom entity dictionary
         """
         self.model = model
         self.device = device
-        self.football_dict_path = football_dict_path
+        self.custom_entity_dict_path = custom_entity_dict_path
         # Implementation placeholder
         pass
 
@@ -105,7 +106,7 @@ class NERPipeline:
         # Implementation placeholder
         pass
 
-    def load_football_dictionary(self, path: Path) -> Dict[str, Any]:
+    def load_custom_dictionary(self, path: Path) -> Dict[str, Any]:
         """
         Load custom entity dictionary.
 

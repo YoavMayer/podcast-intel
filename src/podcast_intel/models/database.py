@@ -341,7 +341,7 @@ class Database:
         Args:
             conn: Database connection
             canonical_name: Canonical entity name
-            entity_type: Entity type (player/club/competition/manager/venue/event/other)
+            entity_type: Entity type (person/organization/location/event/other)
             name_localized: Localized display name (optional)
             external_id: External ID like Wikidata QID (optional)
             metadata: Additional metadata as dict (optional)

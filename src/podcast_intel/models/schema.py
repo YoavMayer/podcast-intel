@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS segments (
     end_time        REAL    NOT NULL,  -- seconds from episode start
     text            TEXT    NOT NULL,  -- UTF-8 transcript text
     word_count      INTEGER NOT NULL DEFAULT 0,
-    language        TEXT    DEFAULT 'en' CHECK (language IN ('he', 'en', 'mixed')),
+    language        TEXT    DEFAULT 'en' CHECK (length(language) BETWEEN 2 AND 10),
     sentiment_score REAL,              -- -1.0 to 1.0
     confidence      REAL,              -- ASR confidence 0.0-1.0
     created_at      TEXT    DEFAULT (datetime('now')),
@@ -76,14 +76,14 @@ CREATE INDEX IF NOT EXISTS idx_segments_speaker ON segments(speaker_id);
 CREATE INDEX IF NOT EXISTS idx_segments_time ON segments(episode_id, start_time);
 
 -- ============================================================
--- ENTITIES: Canonical entity records (players, clubs, etc.)
+-- ENTITIES: Canonical entity records (persons, organizations, etc.)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS entities (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     canonical_name  TEXT    NOT NULL,
     name_localized  TEXT,
-    entity_type     TEXT    NOT NULL CHECK (entity_type IN ('player', 'club', 'competition', 'manager', 'venue', 'event', 'other')),
-    external_id     TEXT,              -- Wikidata QID or Transfermarkt ID
+    entity_type     TEXT    NOT NULL CHECK (entity_type IN ('person', 'organization', 'location', 'event', 'other')),
+    external_id     TEXT,              -- Wikidata QID or other external identifier
     metadata_json   TEXT,              -- additional structured data as JSON
     created_at      TEXT    DEFAULT (datetime('now'))
 );

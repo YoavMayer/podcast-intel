@@ -30,11 +30,9 @@ class TranscriptionStatus(str, Enum):
 
 class EntityType(str, Enum):
     """Entity type enumeration."""
-    PLAYER = "player"
-    CLUB = "club"
-    COMPETITION = "competition"
-    MANAGER = "manager"
-    VENUE = "venue"
+    PERSON = "person"
+    ORGANIZATION = "organization"
+    LOCATION = "location"
     EVENT = "event"
     OTHER = "other"
 
@@ -127,7 +125,7 @@ class Entity(BaseModel):
     """
     Named entity data model.
 
-    Represents a canonical entity (player, club, etc.) with
+    Represents a canonical entity (person, organization, etc.) with
     optional multilingual names and external identifiers.
     """
     id: Optional[int] = None

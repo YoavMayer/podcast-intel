@@ -795,14 +795,6 @@ class TestMockTranscriberGeneration:
             assert isinstance(text, str)
             assert len(text) > 0
 
-    def test_generate_hebrew_segment_returns_string(self):
-        """generate_hebrew_segment (legacy alias) returns a non-empty string."""
-        t = MockTranscriber(num_speakers=3)
-        for speaker_id in range(3):
-            text = t.generate_hebrew_segment(speaker_id)
-            assert isinstance(text, str)
-            assert len(text) > 0
-
     def test_speaker_sequence_starts_with_host(self):
         """Speaker sequence always starts with speaker 0 (Alex, host)."""
         t = MockTranscriber(num_speakers=3)

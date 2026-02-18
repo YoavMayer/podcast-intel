@@ -10,35 +10,61 @@ Open-source podcast analysis and quality scoring framework. Automatically transc
 - **Topic Inventory** - Extract and categorize discussion topics with LLM-powered analysis
 - **Highlight Extraction** - Automatically find the best moments in each episode
 - **Coaching Notes** - Per-speaker feedback and improvement suggestions
-- **Multi-language Support** - English, Hebrew, Spanish, and more via language presets
-- **Semantic Search** - Vector-based search across all episodes using embeddings
+- **Multi-language Support** - English, Hebrew, and more via language presets
+- **RSS Automation** - Watch feeds for new episodes, auto-trigger pipelines
 - **Beautiful Reports** - Self-contained HTML reports with charts and interactive insights
 
+### Feature Status
+
+> v0.1.0 is an early release. Some modules are production-ready, others are in active development.
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| PQS v3 scoring engine | **Complete** | 5 domains, 39 sub-metrics, fully calibrated |
+| SQLite database + models | **Complete** | 10-table schema with Pydantic validation |
+| RSS ingestion | **Complete** | Feed parsing, metadata extraction, download |
+| Mock data system | **Complete** | Full synthetic episodes for testing |
+| CLI (`ingest`, `mock`, `watch`, `events`) | **Complete** | Core commands working |
+| Whisper transcription | **Complete** | faster-whisper with GPU/CPU fallback |
+| Speaker diarization | **Complete** | PyAnnote-based speaker separation |
+| NER pipeline | **Complete** | BERT-based entity extraction |
+| Sentiment analysis | **Complete** | RoBERTa-based per-segment scoring |
+| Filler word detection | **Functional** | Regex-based detection with language support |
+| Silence analysis | **Functional** | Gap detection, micro-pause, dead-air metrics |
+| Episode metrics | **Functional** | Talk time, pace, word counts |
+| HTML report generation | **Partial** | Available via `tools/` scripts |
+| CLI (`transcribe`, `analyze`, `report`) | **Planned** | Use `tools/run_episode_analysis.py` directly |
+| Semantic search | **Planned** | ChromaDB integration in progress |
+| Coaching notes | **Planned** | LLM-powered speaker feedback |
+
 ## Quick Start
+
+### Try It in 60 Seconds
+
+No API keys, no GPU, no audio files needed -- generate a full synthetic episode with mock data:
+
+```bash
+pip install podcast-intel
+podcast-intel mock
+```
+
+This creates a complete mock episode in your database with realistic transcript data, speaker diarization, and all the metrics needed to explore the scoring engine.
 
 ### Installation
 
 ```bash
 pip install podcast-intel
 
-# With transcription support:
+# With transcription support (requires GPU recommended):
 pip install podcast-intel[transcription]
 
 # With all features:
 pip install podcast-intel[all]
 ```
 
-### Initialize a podcast project
+### Set Up Your Podcast
 
-```bash
-# Create a new directory for your podcast project
-mkdir my-podcast && cd my-podcast
-
-# Initialize configuration
-podcast-intel init
-```
-
-This creates a `podcast.yaml` in the current directory. Edit it with your podcast details:
+Create a `podcast.yaml` in your project directory:
 
 ```yaml
 podcast:
@@ -55,34 +81,25 @@ models:
   transcription: "openai/whisper-large-v3-turbo"
   ner: "dslim/bert-base-NER"
   sentiment: "cardiffnlp/twitter-roberta-base-sentiment-latest"
-  embedding: "BAAI/bge-m3"
 ```
 
-### Fetch episodes from RSS
+### Fetch and Analyze Episodes
 
 ```bash
+# Fetch episodes from RSS feed
 podcast-intel ingest
+
+# Run the full analysis pipeline (transcribe + analyze + report)
+python tools/run_episode_analysis.py 42
 ```
 
-### Analyze an episode
-
-```bash
-# Full analysis pipeline: transcribe, analyze, generate report
-podcast-intel analyze 42
-
-# Or run individual steps:
-podcast-intel transcribe 42
-podcast-intel report 42
-```
-
-### View results
+### View Results
 
 Reports are generated in `reports/episode_42/` with:
 - `pqs_v3_scores.json` - Full quality scores across 5 domains and 39 sub-metrics
 - `one_pager.html` - Mobile-first pre-recording brief with coaching notes
 - `panel_chemistry.html` - Speaker dynamics and interactions
 - `transcript.json` - Full timestamped transcript with speaker labels
-- `pipeline_results.json` - Pipeline execution log
 
 **See real examples:** Check out [examples/sample-output/](examples/sample-output/) for sample artifacts from a complete analysis run.
 
@@ -98,7 +115,6 @@ podcast-intel ships with language presets that configure the right NLP models:
 |----------|--------------|-----|-----------|
 | English (default) | whisper-large-v3-turbo | bert-base-NER | roberta-sentiment |
 | Hebrew | ivrit-ai/whisper-large-v3-turbo | DictaBERT-NER | heBERT |
-| Spanish | whisper-large-v3-turbo | bert-base-NER | roberta-sentiment |
 
 To use a preset:
 
@@ -169,23 +185,24 @@ See [docs/PQS_FRAMEWORK.md](docs/PQS_FRAMEWORK.md) for detailed scoring methodol
 ## CLI Reference
 
 ```bash
-# Initialize a new podcast project
-podcast-intel init
-
 # Fetch RSS feed and download new episodes
 podcast-intel ingest
 
-# Transcribe an episode (requires transcription extras)
-podcast-intel transcribe <episode_number>
-
-# Run full analysis on an episode
-podcast-intel analyze <episode_number>
-
-# Generate HTML reports
-podcast-intel report <episode_number>
-
-# Generate mock data for testing
+# Generate mock data for testing (no GPU/API keys needed)
 podcast-intel mock
+
+# Watch RSS for new episodes (automation-friendly)
+podcast-intel watch
+podcast-intel watch --auto-analyze --output-json
+
+# Community events (requires provider config in podcast.yaml)
+podcast-intel events check
+podcast-intel events upcoming
+podcast-intel events briefing
+
+# Full analysis pipeline (via tools/)
+python tools/run_episode_analysis.py <episode_number>
+python tools/generate_one_pager.py <episode_number>
 ```
 
 ## Development
@@ -263,11 +280,13 @@ speakers:
 
 ## Roadmap
 
+- [ ] Unified CLI commands (`transcribe`, `analyze`, `report`) wrapping `tools/` scripts
+- [ ] Semantic search across episodes (ChromaDB)
+- [ ] LLM-powered coaching notes per speaker
+- [ ] Additional language presets (Spanish, Arabic, etc.)
 - [ ] Web UI for browsing episodes and reports
-- [ ] Real-time transcription and analysis
 - [ ] Multi-podcast comparison and benchmarking
 - [ ] Export to podcast platforms (Spotify, Apple Podcasts)
-- [ ] Integration with editing software (Descript, Audacity)
 
 ## License
 

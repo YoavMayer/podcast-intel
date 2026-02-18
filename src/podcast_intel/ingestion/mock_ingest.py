@@ -40,29 +40,29 @@ def generate_mock_episodes(db: Database, count: int = 5) -> List[int]:
     """
     # Mock episode data: realistic English podcast titles
     mock_titles = [
-        "Episode 201 - Season Opener Review",
-        "Episode 202 - Transfer Window Deep Dive",
-        "Episode 203 - Tactical Analysis: New Formation",
-        "Episode 204 - Mid-Season Report Card",
-        "Episode 205 - End of Year Special",
-        "Episode 206 - Comeback of the Season",
-        "Episode 207 - Interview with a Veteran Fan",
-        "Episode 208 - Goalkeeper Performance Review",
-        "Episode 209 - Stats and Analytics Deep Dive",
-        "Episode 210 - Controversial Referee Decisions",
+        "Episode 201 - Season Premiere Discussion",
+        "Episode 202 - Deep Dive: Industry Trends",
+        "Episode 203 - Guest Interview Special",
+        "Episode 204 - Weekly Roundup and Analysis",
+        "Episode 205 - Listener Q&A Session",
+        "Episode 206 - Year in Review",
+        "Episode 207 - Behind the Scenes",
+        "Episode 208 - Expert Panel Discussion",
+        "Episode 209 - Breaking News Analysis",
+        "Episode 210 - Community Spotlight",
     ]
 
     mock_descriptions = [
-        "A deep-dive analysis of the season opener. Discussing tactics, player performances, and what it means for the title race. What did the manager get right and where can we improve?",
-        "The transfer window is here! Who's in, who's out, and did we make good business? An economic and tactical analysis of the new signings and what they bring to the squad.",
-        "A tactical deep-dive into the new 3-4-3 formation. How it works defensively, the idea behind the build-up play, and is this the right setup for our squad?",
-        "Mid-season report card. Grading every department, from goalkeeper to striker. Who exceeded expectations and who needs to step up in the second half?",
-        "End of year special - achievements, disappointments, and looking ahead. Who was our player of the year? What was the moment of the season?",
-        "An incredible 3-2 comeback! How did we pull it off? Breaking down the game plan, key moments, and our standout performers.",
-        "A fascinating interview with a fan who has followed the club for 40 years. Stories from the past, comparisons to today, and what it means to be a lifelong supporter.",
-        "Evaluating our goalkeeper's season. The statistics, strengths and weaknesses, and comparisons to other top keepers in the league.",
-        "A deep statistical dive into our season. xG, possession, pressing metrics - what do the numbers really tell us about the squad?",
-        "Discussing the controversial refereeing decisions that cost us points. VAR, missed penalties, questionable red cards - are we getting a fair deal?",
+        "Kicking off the new season with a wide-ranging discussion. We cover the biggest stories, set expectations, and outline what listeners can look forward to.",
+        "A deep dive into the latest industry trends. What is changing, who are the key players driving innovation, and what does it mean for the future?",
+        "A special guest joins us to share their journey, insights, and predictions. An in-depth conversation covering career highlights and lessons learned.",
+        "Our weekly roundup covering the top stories, listener feedback, and analysis of the most talked-about events of the past week.",
+        "We answer your burning questions! From hot takes to thoughtful inquiries, the hosts tackle listener-submitted topics in this interactive episode.",
+        "Looking back at the year that was. Highlights, surprises, disappointments, and the moments that defined the past twelve months.",
+        "A behind-the-scenes look at how the show is made. Production secrets, bloopers, and a candid conversation about the creative process.",
+        "An expert panel weighs in on the most pressing topics of the moment. Multiple perspectives, lively debate, and actionable takeaways.",
+        "Breaking down the biggest news story of the week. What happened, why it matters, and what comes next. Our hosts provide context and analysis.",
+        "Shining a spotlight on our community. Listener stories, fan contributions, and a celebration of the people who make this show possible.",
     ]
 
     # Base date for episodes (recent dates)
@@ -165,7 +165,7 @@ def create_test_episode(
 
     Example:
         >>> episode = create_test_episode(
-        ...     "Episode 100 - Season Review",
+        ...     "Episode 100 - Year in Review",
         ...     3600,
         ...     datetime(2024, 12, 15)
         ... )
