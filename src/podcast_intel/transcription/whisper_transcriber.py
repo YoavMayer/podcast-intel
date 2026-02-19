@@ -1,11 +1,11 @@
 """
-Real transcription pipeline using faster-whisper on CPU.
+Real transcription pipeline using faster-whisper.
 
 Transcribes podcast audio files using the faster-whisper library with
-CTranslate2 backend. Supports CPU-only operation with int8 quantization.
+CTranslate2 backend. Supports CPU (int8 quantization) and GPU (float16).
 
-The transcription model and language are configurable via podcast.yaml
-or environment variables.
+Default model is "small" (suitable for CPU). For GPU setups, configure
+a larger model in podcast.yaml (e.g., "openai/whisper-large-v3-turbo").
 """
 
 import time

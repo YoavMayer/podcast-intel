@@ -78,7 +78,7 @@ speakers:
     - "John Doe"
 
 models:
-  transcription: "openai/whisper-large-v3-turbo"
+  transcription: "small"  # Default for CPU; use "openai/whisper-large-v3-turbo" on GPU
   ner: "dslim/bert-base-NER"
   sentiment: "cardiffnlp/twitter-roberta-base-sentiment-latest"
 ```

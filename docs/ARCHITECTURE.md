@@ -60,7 +60,7 @@ Episode URL → download_audio() → MP3 file in data/audio/
 ```
 
 **Database Tables:**
-- `episodes` - Episode metadata (title, date, duration, URL)
+- `episodes` - Episode metadata (guid, title, pub_date, audio_url)
 
 ### 2. Transcription (`podcast_intel/transcription/`)
 
@@ -101,8 +101,8 @@ MP3 file → Whisper → Word-level timestamps
 ```
 
 **Database Tables:**
-- `transcripts` - Full transcripts with speaker labels
-- `transcript_segments` - Individual segments with timestamps
+- `segments` - Diarized transcript segments with speaker labels and timestamps
+- `speakers` - Identified speakers with optional voice embeddings
 
 ### 3. Analysis (`podcast_intel/analysis/`)
 
@@ -120,7 +120,7 @@ Multi-model NLP pipeline for extracting insights.
 **Pipeline:**
 
 ```
-Transcript → NER → Entities (PERSON, ORG, LOC, MISC)
+Transcript → NER → Entities (PERSON, ORGANIZATION, LOCATION, EVENT)
           ↓
       Sentiment → Positive/Negative/Neutral scores
           ↓
@@ -142,10 +142,9 @@ Transcript → NER → Entities (PERSON, ORG, LOC, MISC)
 | Embedding | `BAAI/bge-m3` | `sentence-transformers/all-MiniLM-L6-v2` |
 
 **Database Tables:**
-- `entities` - Extracted named entities
-- `sentiment_scores` - Segment-level sentiment
-- `metrics` - Episode-level metrics
-- `pqs_scores` - Domain and overall PQS scores
+- `entities` + `entity_mentions` - Extracted named entities and their locations
+- `metrics` - Episode and speaker-level metrics
+- `silence_events` - Detected silence gaps and dead air
 
 ### 4. Coaching (`podcast_intel/coaching/`)
 
@@ -238,65 +237,26 @@ Data models and database layer.
 
 **Key Components:**
 
-- `schema.py` - Pydantic models for validation
-- `database.py` - SQLite ORM using SQLAlchemy
-- `entities.py` - Entity type definitions
+- `schema.py` - SQLite schema definition and initialization
+- `database.py` - SQLite access layer with context-managed connections
+- `entities.py` - Pydantic data models and entity type definitions
 
-**Database Schema:**
+**Database Tables (10 total):**
 
-```sql
--- Episodes
-CREATE TABLE episodes (
-    id INTEGER PRIMARY KEY,
-    number INTEGER UNIQUE,
-    title TEXT,
-    date TEXT,
-    duration INTEGER,  -- seconds
-    audio_url TEXT,
-    rss_data JSON
-);
+| Table | Purpose |
+|-------|---------|
+| `episodes` | Episode metadata (guid, title, pub_date, audio_url, pqs_score) |
+| `speakers` | Identified panelists/hosts with optional voice embeddings |
+| `segments` | Diarized transcript segments (one per speaker turn) |
+| `entities` | Canonical entity records (person, organization, location, event) |
+| `entity_mentions` | Links entities to specific segments |
+| `metrics` | Computed metrics per episode/speaker (WPM, talk time, etc.) |
+| `silence_events` | Dead air and significant silence gaps |
+| `embeddings` | Segment vector embeddings for semantic search |
+| `coaching_notes` | LLM-generated per-speaker feedback |
+| `topic_inventory` | Extracted discussion topics |
 
--- Transcripts
-CREATE TABLE transcripts (
-    id INTEGER PRIMARY KEY,
-    episode_id INTEGER,
-    segments JSON,  -- Full transcript as JSON
-    language TEXT,
-    created_at TIMESTAMP
-);
-
--- Entities
-CREATE TABLE entities (
-    id INTEGER PRIMARY KEY,
-    episode_id INTEGER,
-    type TEXT,  -- PERSON, ORG, LOC, MISC
-    text TEXT,
-    count INTEGER,
-    segments JSON  -- Where entity appears
-);
-
--- Metrics
-CREATE TABLE metrics (
-    id INTEGER PRIMARY KEY,
-    episode_id INTEGER,
-    metric_type TEXT,
-    value REAL,
-    metadata JSON
-);
-
--- PQS Scores
-CREATE TABLE pqs_scores (
-    id INTEGER PRIMARY KEY,
-    episode_id INTEGER,
-    audio_score REAL,
-    delivery_score REAL,
-    structure_score REAL,
-    content_score REAL,
-    engagement_score REAL,
-    overall_score REAL,
-    computed_at TIMESTAMP
-);
-```
+See `src/podcast_intel/models/schema.py` for the full schema definition.
 
 ## Configuration System
 
@@ -334,12 +294,13 @@ The CLI (`podcast_intel/cli.py`) provides a simple interface to the system:
 
 ```
 podcast-intel
-├── init          # Create podcast.yaml template
 ├── ingest        # Fetch RSS and download episodes
-├── transcribe    # Transcribe an episode
-├── analyze       # Full analysis pipeline
-├── report        # Generate HTML reports
-└── mock          # Generate mock data for testing
+├── mock          # Generate mock data for testing
+├── watch         # Check RSS for new episodes (automation-friendly)
+├── events        # Community events (check / upcoming / briefing)
+├── transcribe    # Transcribe an episode (planned -- use tools/ for now)
+├── analyze       # Full analysis pipeline (planned -- use tools/ for now)
+└── report        # Generate HTML reports (planned -- use tools/ for now)
 ```
 
 **Command Flow:**
@@ -416,8 +377,9 @@ for batch in chunks(segments, batch_size=32):
 - Use indexes on frequently queried fields
 
 ```sql
-CREATE INDEX idx_episodes_number ON episodes(number);
-CREATE INDEX idx_entities_episode ON entities(episode_id);
+CREATE INDEX idx_episodes_pub_date ON episodes(pub_date);
+CREATE INDEX idx_segments_episode ON segments(episode_id);
+CREATE INDEX idx_entities_type ON entities(entity_type);
 CREATE INDEX idx_metrics_episode ON metrics(episode_id);
 ```
 
@@ -457,12 +419,9 @@ pipeline.register('custom_metric', analyze_custom_metric)
 ```
 tests/
 ├── conftest.py              # Fixtures and test configuration
-├── test_mock_system.py      # Integration tests with mock data
-├── test_ingestion.py        # RSS parsing and download tests
-├── test_transcription.py    # Transcription pipeline tests
-├── test_analysis.py         # NLP model tests
-├── test_scoring.py          # PQS scoring tests
-└── test_search.py           # Semantic search tests
+├── test_mock_system.py      # Integration tests with mock data (87 tests)
+├── test_scorer.py           # PQS v3 scoring engine tests
+└── ...                      # Additional test modules
 ```
 
 **Test Levels:**

@@ -279,6 +279,9 @@ def get_table_info(db_path: Path, table_name: str) -> list[tuple]:
         >>> for col in info:
         ...     print(f"{col[1]}: {col[2]}")
     """
+    # Validate table name to prevent SQL injection (PRAGMA doesn't support parameters)
+    if not table_name.isidentifier():
+        raise ValueError(f"Invalid table name: {table_name!r}")
     conn = sqlite3.connect(str(db_path))
     try:
         cursor = conn.execute(f"PRAGMA table_info({table_name})")
@@ -311,8 +314,10 @@ def drop_all_tables(db_path: Path) -> None:
         )
         tables = [row[0] for row in cursor.fetchall()]
 
-        # Drop each table
+        # Drop each table (names come from sqlite_master, validated for safety)
         for table in tables:
+            if not table.isidentifier():
+                continue
             conn.execute(f"DROP TABLE IF EXISTS {table}")
 
         conn.commit()
