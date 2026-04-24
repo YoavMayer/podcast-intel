@@ -48,3 +48,9 @@ htmlcov/
 
 # User podcast config (contains user-specific settings)
 podcast.yaml
+
+# Local-only drafts (not published)
+STAKEHOLDER_PANEL_REVIEW.md
+
+# Claude Code / babysitter cache
+.a5c/
