@@ -379,7 +379,7 @@ def generate_html(
     trend_data: list[tuple[int, float]],
     recording_date: str,
     podcast_name: str = "Podcast",
-    accent_color: str = "#132257",
+    accent_color: str = "#1a1a2e",
 ) -> str:
     """Generate the full one-pager HTML string."""
 
@@ -779,7 +779,7 @@ def main():
     # Load config
     config = _load_config()
     podcast_name = config.get("podcast_name", "Podcast")
-    accent_color = config.get("branding", {}).get("accent_color", "#132257")
+    accent_color = config.get("branding", {}).get("accent_color", "#1a1a2e")
 
     # Load previous episode data
     prev_data = load_pqs_data(prev_episode)

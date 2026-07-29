@@ -19,20 +19,36 @@ ENV/
 *.swp
 *.swo
 
-# Data (user-generated, not tracked)
-data/audio/
-data/db/
-data/embeddings/
+# Data (user-generated, never tracked -- see scripts/check-no-leak.sh)
+data/
+audio/
+transcripts/
+briefs/
+briefings/
+specializations/
+
+# Episode media and transcript artifacts
+*.mp3
+*.wav
+*.m4a
+*.flac
+*.srt
+*.vtt
+*.db
+*.sqlite
+*.sqlite3
 
 # Reports (user-generated, not tracked)
 reports/
 
 # Logs
 logs/
+*.log
 
 # Environment
 .env
-.env.local
+.env.*
+!.env.example
 
 # OS files
 .DS_Store

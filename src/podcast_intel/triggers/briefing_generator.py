@@ -3,8 +3,13 @@ Generic briefing generator for community events.
 
 Generates multi-format briefing content (HTML, WhatsApp, social card)
 from community events, using podcast.yaml branding configuration for
-styling. This module is intentionally GENERIC -- no team-specific or
-sport-specific content is hardcoded.
+styling.
+
+KNOWN LIMITATION: the renderer is not yet sport-neutral. It reads the
+`teams`, `score` and `competition` fields of ``CommunityEvent`` directly and
+its talking-point templates assume a match. Generalising the event model and
+this renderer is tracked work; until then, treat the briefing output as
+football-shaped regardless of the podcast.
 
 Branding and voice come entirely from podcast.yaml configuration:
     podcast:
@@ -14,7 +19,7 @@ Branding and voice come entirely from podcast.yaml configuration:
       direction: "rtl"
       language: "he"
       branding:
-        primary_color: "#132257"
+        primary_color: "#1a1a2e"
         secondary_color: "#FFFFFF"
         accent_color: "#4A90D9"
         highlight_color: "#C4A747"
@@ -833,11 +838,11 @@ def _generate_talking_points(
     max_points: int = 5,
 ) -> List[str]:
     """
-    Generate generic talking points for a community event.
+    Generate talking points for a community event.
 
-    Creates discussion prompts based on the event type, status,
-    teams, and score. These are intentionally generic and do not
-    contain any team-specific opinions or takes.
+    Creates discussion prompts based on the event type, status, teams and
+    score. The templates are sport-shaped (lineups, formations, form) and are
+    emitted for every event of every podcast -- see the module docstring.
 
     Args:
         event: The community event

@@ -1,6 +1,6 @@
 {
   "episode": 42,
-  "pipeline_version": "podcast-intel 0.1.0",
+  "pipeline_version": "podcast-intel 0.2.0",
   "started_at": "2026-02-13T14:00:00Z",
   "completed_at": "2026-02-13T14:32:18Z",
   "total_time_s": 1938,

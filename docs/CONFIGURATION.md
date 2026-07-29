@@ -102,10 +102,13 @@ NLP model configuration. If not specified, uses language preset defaults.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `transcription` | string | `"openai/whisper-large-v3-turbo"` | Whisper model for transcription |
-| `ner` | string | `"dslim/bert-base-NER"` | Named Entity Recognition model |
-| `sentiment` | string | `"cardiffnlp/twitter-roberta-base-sentiment-latest"` | Sentiment analysis model |
-| `embedding` | string | `"BAAI/bge-m3"` | Embedding model for semantic search |
-| `reranker` | string | `"BAAI/bge-reranker-v2-m3"` | Reranker model for search results |
+| `ner` | string | `"dslim/bert-base-NER"` | *Reserved* -- NER is not implemented |
+| `sentiment` | string | `"cardiffnlp/twitter-roberta-base-sentiment-latest"` | *Reserved* -- sentiment analysis is not implemented |
+| `embedding` | string | `"BAAI/bge-m3"` | *Reserved* -- semantic search is not implemented |
+| `reranker` | string | `"BAAI/bge-reranker-v2-m3"` | *Reserved* -- semantic search is not implemented |
+
+> **Reserved keys are accepted and stored, but nothing reads them.** Only
+> `transcription` affects a packaged code path today.
 
 **Supported Transcription Models:**
 
@@ -186,18 +189,24 @@ All configuration can be overridden with environment variables prefixed with `PO
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `PODCAST_INTEL_NER_MODEL` | string | `"dslim/bert-base-NER"` | NER model |
-| `PODCAST_INTEL_SENTIMENT_MODEL` | string | `"cardiffnlp/twitter-roberta-base-sentiment-latest"` | Sentiment model |
-| `PODCAST_INTEL_EMBEDDING_MODEL` | string | `"BAAI/bge-m3"` | Embedding model |
-| `PODCAST_INTEL_RERANKER_MODEL` | string | `"BAAI/bge-reranker-v2-m3"` | Reranker model |
-
-### LLM (for coaching)
+All four are *reserved*: they are parsed into `Config`, but no packaged code reads them.
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `PODCAST_INTEL_LLM_PROVIDER` | string | `"openai"` | LLM provider (`openai`, `anthropic`, `local`) |
-| `PODCAST_INTEL_LLM_MODEL` | string | `"gpt-4o-mini"` | LLM model name |
-| `PODCAST_INTEL_LLM_API_KEY` | string | `""` | API key for LLM provider |
+| `PODCAST_INTEL_NER_MODEL` | string | `"dslim/bert-base-NER"` | Reserved -- NER not implemented |
+| `PODCAST_INTEL_SENTIMENT_MODEL` | string | `"cardiffnlp/twitter-roberta-base-sentiment-latest"` | Reserved -- sentiment not implemented |
+| `PODCAST_INTEL_EMBEDDING_MODEL` | string | `"BAAI/bge-m3"` | Reserved -- search not implemented |
+| `PODCAST_INTEL_RERANKER_MODEL` | string | `"BAAI/bge-reranker-v2-m3"` | Reserved -- search not implemented |
+
+### LLM
+
+Reserved. No packaged code calls an LLM.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `PODCAST_INTEL_LLM_PROVIDER` | string | `"openai"` | Reserved |
+| `PODCAST_INTEL_LLM_MODEL` | string | `"gpt-4o-mini"` | Reserved |
+| `PODCAST_INTEL_LLM_API_KEY` | string | `""` | Reserved |
 
 ### Example .env File
 
@@ -206,7 +215,8 @@ All configuration can be overridden with environment variables prefixed with `PO
 PODCAST_INTEL_LANGUAGE=en
 PODCAST_INTEL_RSS_URL=https://feeds.example.com/mypodcast.rss
 
-# Required for diarization
+# Optional: only tools/diarize_episode.py needs this.
+# The packaged diarizer runs on CPU without a token.
 PODCAST_INTEL_HUGGINGFACE_TOKEN=hf_xxxxxxxxxxxxx
 
 # Optional: Custom paths
@@ -215,10 +225,6 @@ PODCAST_INTEL_AUDIO_DIR=/mnt/storage/audio
 
 # Optional: Use CPU instead of GPU
 PODCAST_INTEL_TRANSCRIPTION_DEVICE=cpu
-
-# Optional: LLM for coaching
-PODCAST_INTEL_LLM_PROVIDER=openai
-PODCAST_INTEL_LLM_API_KEY=sk-xxxxxxxxxxxxx
 ```
 
 ## Language Presets

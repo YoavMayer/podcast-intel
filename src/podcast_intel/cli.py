@@ -3,9 +3,6 @@ Command-line interface for Podcast Intelligence System.
 
 Usage:
     podcast-intel ingest          # Fetch RSS and download new episodes
-    podcast-intel transcribe 42   # Transcribe episode 42
-    podcast-intel analyze 42      # Run full analysis on episode 42
-    podcast-intel report 42       # Generate reports for episode 42
     podcast-intel mock            # Generate mock data for testing
     podcast-intel watch           # Check RSS for new episodes (one-shot)
     podcast-intel watch --auto-analyze   # Check + trigger analysis pipeline
@@ -33,24 +30,6 @@ def cmd_ingest(args):
     from podcast_intel.ingestion.rss_parser import parse_rss_feed
     episodes = parse_rss_feed(config.rss_url)
     print(f"Found {len(episodes)} episodes in RSS feed")
-
-
-def cmd_transcribe(args):
-    """Transcribe an episode."""
-    print(f"Transcribing episode {args.episode}...")
-    print("(Not yet implemented -- use tools/run_episode_analysis.py)")
-
-
-def cmd_analyze(args):
-    """Run analysis on an episode."""
-    print(f"Analyzing episode {args.episode}...")
-    print("(Not yet implemented -- use tools/run_episode_analysis.py)")
-
-
-def cmd_report(args):
-    """Generate reports for an episode."""
-    print(f"Generating report for episode {args.episode}...")
-    print("(Not yet implemented -- use tools/generate_one_pager.py)")
 
 
 def cmd_mock(args):
@@ -268,21 +247,6 @@ def main():
     sub_ingest = subparsers.add_parser("ingest", help="Fetch RSS and download new episodes")
     sub_ingest.set_defaults(func=cmd_ingest)
 
-    # transcribe
-    sub_transcribe = subparsers.add_parser("transcribe", help="Transcribe an episode")
-    sub_transcribe.add_argument("episode", type=int, help="Episode number")
-    sub_transcribe.set_defaults(func=cmd_transcribe)
-
-    # analyze
-    sub_analyze = subparsers.add_parser("analyze", help="Run analysis on an episode")
-    sub_analyze.add_argument("episode", type=int, help="Episode number")
-    sub_analyze.set_defaults(func=cmd_analyze)
-
-    # report
-    sub_report = subparsers.add_parser("report", help="Generate reports for an episode")
-    sub_report.add_argument("episode", type=int, help="Episode number")
-    sub_report.set_defaults(func=cmd_report)
-
     # mock
     sub_mock = subparsers.add_parser("mock", help="Generate mock data for testing")
     sub_mock.set_defaults(func=cmd_mock)
@@ -296,7 +260,10 @@ def main():
         "--auto-analyze",
         action="store_true",
         default=False,
-        help="Automatically trigger analysis pipeline for new episodes",
+        help=(
+            "List the new episodes that would be analyzed. The analysis pipeline "
+            "is NOT yet wired -- run tools/run_episode_analysis.py per episode."
+        ),
     )
     sub_watch.add_argument(
         "--dry-run",

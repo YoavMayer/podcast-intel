@@ -79,6 +79,14 @@ jobs:
           pip install -e ".[dev]"
 
       # -----------------------------------------------------------------------
+      # 3b. Data-leakage gate
+      #     Scans the tracked tree for private show strings, roster names,
+      #     episode media/transcripts and credentials. This repo is public.
+      # -----------------------------------------------------------------------
+      - name: Check for leaked private data
+        run: bash scripts/check-no-leak.sh
+
+      # -----------------------------------------------------------------------
       # 4. Lint with ruff
       #    Configuration is read from pyproject.toml [tool.ruff]
       # -----------------------------------------------------------------------

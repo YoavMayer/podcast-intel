@@ -1,0 +1,13 @@
+# Install with:  pip install pre-commit && pre-commit install
+#
+# The leak gate is the reason this file exists: podcast-intel is public, and a
+# single committed show string, transcript or audio file cannot be un-published.
+repos:
+  - repo: local
+    hooks:
+      - id: check-no-leak
+        name: check-no-leak (private data / show strings / secrets)
+        entry: scripts/check-no-leak.sh
+        language: script
+        pass_filenames: true
+        always_run: true

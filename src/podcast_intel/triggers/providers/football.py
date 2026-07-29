@@ -141,7 +141,7 @@ class FootballProvider(CommunityEventProvider):
             event: The community event to format
 
         Returns:
-            Formatted string like "Tottenham 2-1 Newcastle (Premier League, 2026-02-08)"
+            Formatted string like "Home 2-1 Away (Competition, 2026-02-08)"
         """
         teams_str = " vs ".join(event.teams) if event.teams else "Unknown"
         score_str = f" {event.score}" if event.score else ""

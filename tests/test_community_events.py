@@ -132,12 +132,12 @@ class TestCommunityEvent:
     def test_event_to_json_unicode(self):
         """to_json handles non-ASCII characters correctly."""
         event = _make_event(
-            teams=["Tottenham Hotspur", "Paris Saint-Germain"],
-            summary="Tottenham 3-0 PSG",
+            teams=["קבוצה א", "Équipe B"],
+            summary="קבוצה א 3-0 Équipe B",
         )
         json_str = event.to_json()
         parsed = json.loads(json_str)
-        assert "Paris Saint-Germain" in parsed["teams"]
+        assert "Équipe B" in parsed["teams"]
 
 
 # ---------------------------------------------------------------------------

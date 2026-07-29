@@ -364,7 +364,8 @@ Episode 43: PQS = 81.9 (+3.7)
 2. **Focus on trends** - Consistent improvement matters more than individual scores
 3. **Customize weights** - Adjust for your podcast type and audience
 4. **Combine with qualitative feedback** - PQS complements, doesn't replace, listener feedback
-5. **Use coaching insights** - Read the per-speaker coaching notes for specific guidance
+5. **Read the sub-metric breakdown** - The per-speaker sub-metric scores show where a
+   domain score came from; automated coaching notes are planned, not shipped
 
 ## Technical Notes
 
@@ -398,9 +399,8 @@ if not has_diarization:
 ## References
 
 - **Loudness Standards**: ITU-R BS.1770-4, EBU R 128
-- **Transcription**: OpenAI Whisper, PyAnnote Audio
-- **NER**: BERT-based Named Entity Recognition
-- **Sentiment**: RoBERTa-based Sentiment Analysis
+- **Transcription**: OpenAI Whisper / faster-whisper
+- **Diarization**: MFCC features + spectral clustering (librosa, scikit-learn)
 
 ## Version Changelog
 

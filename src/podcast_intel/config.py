@@ -113,41 +113,46 @@ class Config(BaseSettings):
     )
     huggingface_token: Optional[str] = Field(
         default=None,
-        description="Hugging Face token for pyannote-audio"
+        description=(
+            "Hugging Face token. NOT needed by the packaged diarizer "
+            "(MFCC + spectral clustering); only tools/diarize_episode.py uses it."
+        )
     )
 
-    # Analysis settings
+    # Analysis settings.
+    # NOTE: no packaged code reads the model IDs below -- the NER and sentiment
+    # stages are planned, not shipped. Setting them changes nothing today.
     ner_model: str = Field(
         default="dslim/bert-base-NER",
-        description="Named Entity Recognition model"
+        description="Named Entity Recognition model (reserved; NER is not implemented)"
     )
     sentiment_model: str = Field(
         default="cardiffnlp/twitter-roberta-base-sentiment-latest",
-        description="Sentiment analysis model"
+        description="Sentiment model (reserved; sentiment analysis is not implemented)"
     )
 
-    # Search settings
+    # Search settings (reserved; semantic search is not implemented)
     embedding_model: str = Field(
         default="BAAI/bge-m3",
-        description="Embedding model for semantic search"
+        description="Embedding model (reserved; semantic search is not implemented)"
     )
     reranker_model: str = Field(
         default="BAAI/bge-reranker-v2-m3",
-        description="Reranker model for search results"
+        description="Reranker model (reserved; semantic search is not implemented)"
     )
 
-    # LLM settings for coaching/topics
+    # LLM settings (reserved; no packaged code calls an LLM)
     llm_provider: str = Field(
         default="openai",
-        description="LLM provider (openai/anthropic/local)"
+        description="LLM provider (reserved; no packaged code calls an LLM)"
     )
     llm_model: str = Field(
         default="gpt-4o-mini",
-        description="LLM model name"
+        description="LLM model name (reserved; no packaged code calls an LLM)"
     )
     llm_api_key: Optional[str] = Field(
         default=None,
-        description="API key for LLM provider"
+        description="API key for LLM provider (reserved; no packaged code calls an LLM)"
     )
 
     def ensure_directories(self) -> None:

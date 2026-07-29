@@ -35,7 +35,7 @@ This project adheres to a code of conduct that we expect all contributors to fol
 
 ```bash
 # Clone the repository
-git clone https://github.com/podcast-intel/podcast-intel.git
+git clone https://github.com/YoavMayer/podcast-intel.git
 cd podcast-intel
 
 # Create a virtual environment
@@ -49,6 +49,20 @@ source .venv/bin/activate
 
 # Install in development mode with all dependencies
 pip install -e ".[dev,all]"
+
+# Install the data-leakage pre-commit hook (required -- this repo is public)
+pip install pre-commit
+pre-commit install
+```
+
+### The data-leakage gate
+
+`scripts/check-no-leak.sh` scans the **tracked** tree for private show strings, roster
+names, episode media/transcripts and credentials, and fails the commit and CI if it finds
+any. Run it by hand at any time:
+
+```bash
+bash scripts/check-no-leak.sh
 ```
 
 ### Environment Variables
@@ -60,12 +74,9 @@ Create a `.env` file in the project root for local development:
 PODCAST_INTEL_DB_PATH=/custom/path/podcast_intel.db
 PODCAST_INTEL_AUDIO_DIR=/custom/path/audio
 
-# Required for diarization
+# Optional: only needed by tools/diarize_episode.py (the PyAnnote script).
+# The packaged diarizer needs no token.
 PODCAST_INTEL_HUGGINGFACE_TOKEN=hf_xxxxxxxxxxxxx
-
-# Optional: LLM API keys for coaching features
-PODCAST_INTEL_LLM_PROVIDER=openai
-PODCAST_INTEL_LLM_API_KEY=sk-xxxxxxxxxxxxx
 ```
 
 ### Verify Installation
@@ -89,13 +100,8 @@ podcast-intel/
 │   ├── analysis/               # Analysis pipeline
 │   │   ├── filler_detector.py  # Filler word detection
 │   │   ├── metrics.py          # Metric computation
-│   │   ├── ner_pipeline.py     # Named entity recognition
 │   │   ├── scorer.py           # PQS v3 scoring
-│   │   ├── sentiment.py        # Sentiment analysis
 │   │   └── silence_analyzer.py # Silence detection
-│   ├── coaching/               # Speaker coaching
-│   │   ├── coach.py            # Coaching engine
-│   │   └── interruptions.py    # Interruption detection
 │   ├── ingestion/              # Data ingestion
 │   │   ├── downloader.py       # Audio downloader
 │   │   ├── rss_parser.py       # RSS feed parser
@@ -107,12 +113,9 @@ podcast-intel/
 │   ├── presets/                # Language presets
 │   │   ├── english.yaml
 │   │   └── hebrew.yaml
-│   ├── search/                 # Semantic search
-│   │   ├── embedder.py         # Embedding generation
-│   │   ├── query.py            # Query interface
-│   │   └── vector_store.py     # ChromaDB integration
+│   ├── triggers/               # RSS watcher, community events, briefings
 │   └── transcription/          # Transcription pipeline
-│       ├── diarize.py          # Speaker diarization
+│       ├── diarize.py          # Speaker diarization (MFCC + spectral clustering)
 │       ├── transcribe.py       # Transcription interface
 │       ├── whisper_transcriber.py  # Whisper implementation
 │       └── mock_transcribe.py  # Mock transcriber
@@ -123,9 +126,15 @@ podcast-intel/
 │   ├── diarize_episode.py
 │   ├── merge_diarization.py
 │   └── text_based_diarization.py
+├── scripts/                    # Repo gates
+│   └── check-no-leak.sh        # Data-leakage check (CI + pre-commit)
 ├── tests/                      # Test suite
 │   ├── conftest.py             # Pytest fixtures
-│   └── test_mock_system.py     # Integration tests
+│   ├── test_community_events.py
+│   ├── test_football_provider.py
+│   ├── test_mock_system.py     # Integration tests
+│   ├── test_rss_watcher.py
+│   └── test_scorer.py
 ├── examples/                   # Example configurations
 │   └── quickstart/
 │       └── podcast.yaml

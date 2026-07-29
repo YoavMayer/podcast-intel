@@ -348,7 +348,7 @@ def generate_html_report(report: dict, episodes: dict) -> str:
 
     config = _load_config()
     podcast_name = config.get("podcast_name", "Podcast")
-    accent_color = config.get("branding", {}).get("accent_color", "#132257")
+    accent_color = config.get("branding", {}).get("accent_color", "#1a1a2e")
 
     def bar(value, max_val=100, color="#4CAF50"):
         width = min(value / max_val * 100, 100)

@@ -26,8 +26,8 @@ from podcast_intel.config import get_config
 # ---------------------------------------------------------------------------
 # English segment templates organized by topic category.
 # Curly-brace placeholders are filled at generation time.
-# NOTE: The mock data uses sports/football examples for demonstration purposes.
-# The podcast-intel framework itself is domain-agnostic.
+# This corpus is football-specific. Replacing it with a domain-neutral one is
+# tracked work.
 # ---------------------------------------------------------------------------
 
 MATCH_ANALYSIS_TEMPLATES = [
@@ -93,7 +93,7 @@ ALL_TEMPLATES = (
 )
 
 # ---------------------------------------------------------------------------
-# Generic entities for template filling
+# Football entities for template filling (not generic -- these are real clubs)
 # ---------------------------------------------------------------------------
 
 PLAYERS = [
@@ -250,7 +250,7 @@ SAM_ANALYTICAL_TEMPLATES = [
     "If you run a regression analysis on the performances, there's a clear positive trend",
 ]
 
-# English terms used in mock data templates (sports examples for demonstration purposes)
+# English football terms used in mock data templates
 ENGLISH_TERMS = [
     "Premier League", "top 4", "VAR", "pressing", "build-up play",
     "set pieces", "counter-attack", "xG", "clean sheet", "hat-trick",
@@ -335,7 +335,7 @@ class MockTranscriber(TranscriptionInterface):
     - Multiple speakers (2-3 per episode)
     - Realistic timestamps and durations
     - Natural filler words with speaker-specific patterns
-    - Topic-specific terminology (mock data uses sports examples for demonstration)
+    - Topic-specific terminology (the bundled corpus is football)
 
     Example:
         >>> transcriber = MockTranscriber(num_speakers=3)
