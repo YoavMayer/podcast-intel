@@ -14,12 +14,15 @@ Uses unittest.mock to isolate from real API calls.
 """
 
 import json
+import warnings
+from dataclasses import fields
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from podcast_intel.triggers.community_events import (
+    DEPRECATED_FIELD_ALIASES,
     CommunityEvent,
     CommunityEventProvider,
     EventCheckResult,
@@ -38,23 +41,23 @@ from podcast_intel.triggers.providers import (
 
 def _make_event(
     event_id: str = "12345",
-    event_type: str = "match",
+    event_type: str = "panel",
     status: str = "FINISHED",
-    teams: list = None,
-    score: str = "2-1",
+    participants: list = None,
+    result: str = "2-1",
     date: str = "2026-02-14T15:00:00Z",
-    competition: str = "Premier League",
-    summary: str = "Team A 2-1 Team B",
+    context: str = "Season One",
+    summary: str = "Group A 2-1 Group B",
 ) -> CommunityEvent:
     """Create a sample CommunityEvent for testing."""
     return CommunityEvent(
         event_id=event_id,
         event_type=event_type,
         status=status,
-        teams=teams or ["Team A", "Team B"],
-        score=score,
+        participants=participants or ["Group A", "Group B"],
+        result=result,
         date=date,
-        competition=competition,
+        context=context,
         summary=summary,
     )
 
@@ -88,12 +91,13 @@ class TestCommunityEvent:
         """CommunityEvent can be created with minimal fields."""
         event = CommunityEvent(
             event_id="1",
-            event_type="match",
+            event_type="release",
             status="FINISHED",
         )
         assert event.event_id == "1"
-        assert event.teams == []
-        assert event.score is None
+        assert event.participants == []
+        assert event.result is None
+        assert event.context == ""
         assert event.date == ""
         assert event.raw_data == {}
 
@@ -101,20 +105,34 @@ class TestCommunityEvent:
         """CommunityEvent stores all provided fields."""
         event = _make_event()
         assert event.event_id == "12345"
-        assert event.event_type == "match"
+        assert event.event_type == "panel"
         assert event.status == "FINISHED"
-        assert event.teams == ["Team A", "Team B"]
-        assert event.score == "2-1"
-        assert event.competition == "Premier League"
+        assert event.participants == ["Group A", "Group B"]
+        assert event.result == "2-1"
+        assert event.context == "Season One"
+
+    def test_default_mutables_are_not_shared(self):
+        """Two default-constructed events do not share their containers."""
+        first = CommunityEvent(event_id="1", event_type="meetup", status="SCHEDULED")
+        second = CommunityEvent(event_id="2", event_type="meetup", status="SCHEDULED")
+        first.participants.append("Someone")
+        first.raw_data["k"] = "v"
+        assert second.participants == []
+        assert second.raw_data == {}
 
     def test_event_to_dict(self):
-        """to_dict produces a serializable dictionary."""
+        """to_dict produces a serializable dictionary with the neutral names."""
         event = _make_event()
         d = event.to_dict()
         assert isinstance(d, dict)
         assert d["event_id"] == "12345"
-        assert d["teams"] == ["Team A", "Team B"]
-        assert d["score"] == "2-1"
+        assert d["participants"] == ["Group A", "Group B"]
+        assert d["result"] == "2-1"
+        assert d["context"] == "Season One"
+        # The football-shaped names are gone from the wire format.
+        assert "teams" not in d
+        assert "score" not in d
+        assert "competition" not in d
 
     def test_event_to_json(self):
         """to_json produces valid JSON string."""
@@ -127,12 +145,106 @@ class TestCommunityEvent:
     def test_event_to_json_unicode(self):
         """to_json handles non-ASCII characters correctly."""
         event = _make_event(
-            teams=["קבוצה א", "Équipe B"],
+            participants=["קבוצה א", "Équipe B"],
             summary="קבוצה א 3-0 Équipe B",
         )
         json_str = event.to_json()
         parsed = json.loads(json_str)
-        assert "Équipe B" in parsed["teams"]
+        assert "Équipe B" in parsed["participants"]
+
+    def test_event_is_not_shaped_like_a_fixture(self):
+        """No football-specific field survives on the generic dataclass."""
+        field_names = {f.name for f in fields(CommunityEvent)}
+        assert field_names == {
+            "event_id", "event_type", "status", "participants", "result",
+            "date", "context", "summary", "raw_data",
+        }
+
+
+# ---------------------------------------------------------------------------
+#  Deprecated alias tests -- remove together with the aliases
+# ---------------------------------------------------------------------------
+
+class TestDeprecatedFieldAliases:
+    """The old football-shaped names keep working for one release."""
+
+    def test_alias_map_is_declared(self):
+        """The alias map documents exactly the three renamed fields."""
+        assert DEPRECATED_FIELD_ALIASES == {
+            "teams": "participants",
+            "score": "result",
+            "competition": "context",
+        }
+
+    @pytest.mark.parametrize(
+        ("old", "new", "value"),
+        [
+            ("teams", "participants", ["A", "B"]),
+            ("score", "result", "2-1"),
+            ("competition", "context", "Season One"),
+        ],
+    )
+    def test_old_constructor_kwarg_fills_new_field(self, old, new, value):
+        """Constructing with an old name populates the new field and warns."""
+        with pytest.warns(DeprecationWarning, match=old):
+            event = CommunityEvent(
+                event_id="1", event_type="match", status="FINISHED",
+                **{old: value},
+            )
+        assert getattr(event, new) == value
+
+    @pytest.mark.parametrize(
+        ("old", "new", "value"),
+        [
+            ("teams", "participants", ["A", "B"]),
+            ("score", "result", "2-1"),
+            ("competition", "context", "Season One"),
+        ],
+    )
+    def test_old_attribute_reads_new_field(self, old, new, value):
+        """Reading an old name returns the new field's value and warns."""
+        event = CommunityEvent(
+            event_id="1", event_type="match", status="FINISHED",
+            **{new: value},
+        )
+        with pytest.warns(DeprecationWarning, match=old):
+            assert getattr(event, old) == value
+
+    @pytest.mark.parametrize(
+        ("old", "new", "value"),
+        [
+            ("teams", "participants", ["C"]),
+            ("score", "result", "0-0"),
+            ("competition", "context", "Cup"),
+        ],
+    )
+    def test_old_attribute_writes_new_field(self, old, new, value):
+        """Assigning through an old name updates the new field and warns."""
+        event = CommunityEvent(event_id="1", event_type="match", status="FINISHED")
+        with pytest.warns(DeprecationWarning, match=old):
+            setattr(event, old, value)
+        assert getattr(event, new) == value
+
+    def test_new_name_wins_when_both_are_given(self):
+        """An explicit new name is not overwritten by its deprecated alias."""
+        with pytest.warns(DeprecationWarning):
+            event = CommunityEvent(
+                event_id="1", event_type="match", status="FINISHED",
+                participants=["New"], teams=["Old"],
+            )
+        assert event.participants == ["New"]
+
+    def test_new_names_do_not_warn(self):
+        """The supported names are warning-free."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            event = CommunityEvent(
+                event_id="1", event_type="match", status="FINISHED",
+                participants=["A", "B"], result="1-0", context="Cup",
+            )
+            assert event.participants == ["A", "B"]
+            assert event.result == "1-0"
+            assert event.context == "Cup"
 
 
 # ---------------------------------------------------------------------------

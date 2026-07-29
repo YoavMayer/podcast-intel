@@ -172,9 +172,9 @@ def cmd_events_upcoming(args: argparse.Namespace) -> None:
         print(f"Upcoming events ({result.provider_name}):")
         for event in result.events:
             date_str = event.date[:10] if event.date else "TBD"
-            teams_str = " vs ".join(event.teams) if event.teams else event.summary
-            comp_str = f" ({event.competition})" if event.competition else ""
-            print(f"  - [{date_str}] {teams_str}{comp_str}")
+            who = " / ".join(event.participants) if event.participants else event.summary
+            context_str = f" ({event.context})" if event.context else ""
+            print(f"  - [{date_str}] {who}{context_str}")
     else:
         print(f"No upcoming events found (provider: {result.provider_name}).")
 
@@ -223,12 +223,26 @@ def cmd_events_briefing(args: argparse.Namespace) -> None:
     formats = briefing_config.get("formats", ["html"])
     output_dir = briefing_config.get("output_dir", "reports/briefings")
 
+    # Resolve the provider so its talking_points() hook can supply
+    # domain-specific prompts; the briefing falls back to neutral ones.
+    provider = None
+    try:
+        from podcast_intel.triggers.providers import get_provider
+
+        provider = get_provider(
+            result.provider_name,
+            ce_config.get("provider_config", {}),
+        )
+    except Exception as exc:
+        print(f"WARNING: provider unavailable for talking points ({exc}); using generic ones.")
+
     # Generate briefing
     file_paths = generate_briefing(
         event=target_event,
         config=yaml_config,
         formats=formats,
         output_dir=output_dir,
+        provider=provider,
     )
 
     print(f"\nGenerated {len(file_paths)} file(s):")

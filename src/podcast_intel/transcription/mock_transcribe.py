@@ -20,79 +20,84 @@ from podcast_intel.models.database import Database
 from podcast_intel.transcription.transcribe import TranscriptionInterface, TranscriptionResult
 
 # ---------------------------------------------------------------------------
-# English segment templates organized by topic category.
+# English segment templates organized by conversation category.
 # Curly-brace placeholders are filled at generation time.
-# This corpus is football-specific. Replacing it with a domain-neutral one is
-# tracked work.
+#
+# The corpus is a generic multi-host panel discussion ABOUT a podcast and its
+# subject matter. It names no real organisation and belongs to no domain: this
+# is what `podcast-intel mock` prints, so it is the first thing anyone
+# evaluating the framework reads. A show with its own vocabulary replaces
+# these lists; nothing else in the package reads them.
 # ---------------------------------------------------------------------------
 
-MATCH_ANALYSIS_TEMPLATES = [
-    "The match against {team} was {adjective}, the {formation} worked really well",
-    "In the second half against {team} we saw significant improvement in build-up play",
-    "The pressing from {team} in the first half was very aggressive, we couldn't get out",
-    "At the end of the day, the clean sheet against {team} is the most important thing",
-    "We saw a quick counter-attack, {team} couldn't recover from it",
-    "Our set pieces against {team} were much more dangerous this time",
-    "The xG from the match against {team} says we should have won by a bigger margin",
-    "That was a clear penalty, the VAR didn't do its job in the match against {team}",
+TOPIC_ANALYSIS_TEMPLATES = [
+    "The segment on {topic} was {adjective}, the {approach} worked really well",
+    "In the second half of the episode we saw a much sharper take on {topic}",
+    "The pushback from {org} on that topic was aggressive, we never got past it",
+    "At the end of the day, a straight answer on {topic} is what the audience came for",
+    "We ran a quick follow-up question and {org} had nothing prepared",
+    "Our research on {topic} was much stronger this time, and the episode shows it",
+    "The data on {topic} says the story is far bigger than the headline suggested",
+    "That was a clear correction, and the original report never acknowledged it",
 ]
 
-PLAYER_DISCUSSION_TEMPLATES = [
-    "I think {player} played phenomenally, his {stat} was {value}",
-    "{player} gave everything on the pitch, you can see his progress",
-    "The hat-trick from {player} was a historic moment, three world-class goals",
-    "You have to give credit to {player}, he was absolutely outstanding",
-    "The performance from {player} reminds me of his best period",
-    "{player} was the most dangerous winger in the league this month",
-    "The stats for {player} speak for themselves, {stat} of {value}",
-    "The question is whether {player} can maintain this level all season",
+PERSON_DISCUSSION_TEMPLATES = [
+    "I think {person} was a phenomenal guest, their {metric} was {value}",
+    "{person} answered every question straight, you can hear the preparation",
+    "The three-part story from {person} was the highlight of the whole episode",
+    "You have to give credit to {person}, that was an outstanding segment",
+    "The appearance from {person} reminds me of their best interview",
+    "{person} was the most quoted guest on the panel this month",
+    "The numbers for {person} speak for themselves, {metric} of {value}",
+    "The question is whether {person} can hold that level across a season of episodes",
 ]
 
-TACTICAL_ANALYSIS_TEMPLATES = [
-    "The {formation} allows the midfield to control the game effectively",
-    "The problem with the {formation} is that the defender is left exposed",
-    "In build-up play he asks the goalkeeper to start, it's risky but effective",
-    "The offside trap only works when the entire line is synchronized",
-    "The idea behind the short corner kick is to create numerical superiority",
-    "The pressing is based on specific triggers when the ball reaches the {position}",
-    "The transition from {formation} to 4-2-3-1 shows the tactical flexibility",
-    "The striker needs to drop deeper in build-up to create an overload in midfield",
+DEEP_DIVE_TEMPLATES = [
+    "The {approach} lets the panel control the pacing of an episode effectively",
+    "The problem with the {approach} is that the quieter guest gets squeezed out",
+    "In the opening he asks the producer to set the frame, it is risky but it works",
+    "A hard time limit only works when the entire panel agrees to it",
+    "The idea behind the short closing segment is to leave the audience one takeaway",
+    "The follow-up questions only land when the {role} has done the reading",
+    "Moving from the {approach} to a two-part episode shows real editorial flexibility",
+    "The host needs to step back mid-segment so the guest can finish a thought",
 ]
 
-TRANSFER_TALK_TEMPLATES = [
-    "I heard they want to sign {player} from {club}, that could be an excellent signing",
-    "If {player} really leaves for {club}, it would be a disaster for us",
-    "This transfer window must bring a new {position}, it's our weakest area",
-    "The transfer fee for {player} was excessive, but that's normal money in the league now",
-    "Rumors about {player} from {club}, I believe it could work in our system",
-    "{club} want {value} million for {player}, and that's just not a reasonable price",
+NEWS_TALK_TEMPLATES = [
+    "I heard they want to bring {person} across from {org}, an excellent addition to the panel",
+    "If {person} really does leave for {org}, it would be a real loss for this show",
+    "This season needs a new {role}, it is the weakest part of the production",
+    "The budget for {person} was steep, but that is the going rate for a guest now",
+    "There are rumours about {person} moving to {org}, I think it could work for the format",
+    "{org} want {value} for {person}, and that is simply not a reasonable ask for one episode",
 ]
 
 GENERAL_OPINION_TEMPLATES = [
-    "I disagree, there's a problem with the {concept} of the team",
-    "Look, in today's game you have to be in the top four to compete",
-    "The table position doesn't reflect our performances, the xG tells a different story",
-    "After the cup, we can focus on the league, and that should be the priority",
-    "The cup is an opportunity to give minutes to the youth players",
-    "Every season starts with hope, this year things are looking much better",
-    "The crowd at the stadium was phenomenal, the atmosphere made the difference",
-    "You need patience with this project, it takes time to build a team",
+    "I disagree, there is a problem with how this show frames {topic}",
+    "Look, in this format you have to earn the audience in the first ten minutes",
+    "The download numbers do not reflect the episode quality, the listener feedback tells another story",
+    "After this series we can focus on the long-form interviews, and that should be the priority",
+    "A short season is an opportunity to give airtime to newer voices on the panel",
+    "Every season starts with hope, this year the show is looking much stronger",
+    "The live audience was phenomenal, the room made the whole episode better",
+    "You need patience with this project, building a show takes time",
 ]
 
 # All templates combined for random selection
 ALL_TEMPLATES = (
-    MATCH_ANALYSIS_TEMPLATES
-    + PLAYER_DISCUSSION_TEMPLATES
-    + TACTICAL_ANALYSIS_TEMPLATES
-    + TRANSFER_TALK_TEMPLATES
+    TOPIC_ANALYSIS_TEMPLATES
+    + PERSON_DISCUSSION_TEMPLATES
+    + DEEP_DIVE_TEMPLATES
+    + NEWS_TALK_TEMPLATES
     + GENERAL_OPINION_TEMPLATES
 )
 
 # ---------------------------------------------------------------------------
-# Football entities for template filling (not generic -- these are real clubs)
+# Placeholder entities. Every name here is invented; none refers to a real
+# person or organisation.
 # ---------------------------------------------------------------------------
 
-PLAYERS = [
+PEOPLE = [
     "Martinez",
     "Fernandez",
     "Johnson",
@@ -100,26 +105,26 @@ PLAYERS = [
     "Anderson",
 ]
 
-CLUBS = [
-    "Arsenal",
-    "Chelsea",
-    "Manchester City",
-    "Liverpool",
+ORGANIZATIONS = [
+    "Northwind",
+    "Meridian",
+    "Lakeside",
+    "Crosstown",
 ]
 
-FORMATIONS = [
-    "3-4-3",
-    "4-2-3-1",
-    "4-3-3",
-    "3-5-2",
+APPROACHES = [
+    "roundtable format",
+    "long-form interview",
+    "rapid-fire segment",
+    "two-host format",
 ]
 
-POSITIONS = [
-    "striker",
-    "midfielder",
-    "defender",
-    "winger",
-    "goalkeeper",
+ROLES = [
+    "host",
+    "producer",
+    "researcher",
+    "editor",
+    "co-host",
 ]
 
 ADJECTIVES = [
@@ -135,26 +140,39 @@ ADJECTIVES = [
     "impressive",
 ]
 
-STATS = [
-    "xG",
-    "pass completion",
-    "pressing index",
-    "distance covered",
-    "tackles won",
-    "chances created",
-    "clean sheet",
-    "assist record",
+METRICS = [
+    "listener retention",
+    "episode completion",
+    "download growth",
+    "engagement rate",
+    "reply volume",
+    "audience reach",
+    "follow-through rate",
+    "citation count",
 ]
 
-STAT_VALUES = [
+METRIC_VALUES = [
     "above average",
-    "highest in the league",
+    "the highest this season",
     "outstanding",
     "0.85",
     "92%",
-    "12.3 km",
+    "up 18%",
     "very impressive",
-    "personal best",
+    "a personal best",
+]
+
+TOPICS = [
+    "the funding round",
+    "the new release",
+    "the policy change",
+    "the community survey",
+    "the annual report",
+    "the roadmap",
+    "the editorial line",
+    "the format change",
+    "the archive project",
+    "the listener mailbag",
 ]
 
 # ---------------------------------------------------------------------------
@@ -230,41 +248,42 @@ SPEAKER_PROFILES: dict[str, SpeakerProfile] = {
 # ---------------------------------------------------------------------------
 
 HOST_TRANSITION_TEMPLATES = [
-    "So let's move on to the next topic, what do you guys think about the {concept}?",
-    "Wait, before we continue, {name} what do you think about this?",
-    "Okay, question for {name}, how do you see the situation with {concept}?",
-    "Let's talk about the next match against {team}, what are the expectations?",
-    "Now, the topic everyone's talking about, the {concept}",
-    "Before we wrap up, we have to talk about {player}, what's going on with him?",
+    "So let's move on to the next segment, what do you all make of {topic}?",
+    "Wait, before we continue, {name} what do you think about this story?",
+    "Okay, question for {name}, how do you see the situation with {topic}?",
+    "Let's talk about the next episode with {org}, what should the audience expect?",
+    "Now, the topic everyone is talking about, {topic}",
+    "Before we wrap up, we have to talk about {person}, what is going on with that story?",
 ]
 
 # Jordan's passionate reactions
 JORDAN_PASSIONATE_TEMPLATES = [
-    "No way! {player} should have received the ball there!",
-    "Listen, I'm telling you, this {concept} is going to change everything!",
-    "I can't believe the VAR didn't give that penalty!",
-    "Mate, {player} is just on another level, no question about it!",
-    "That's insane! {team} couldn't stop our counter-attack!",
-    "I'm hearing the rumors about {player} and I'm getting excited, honestly!",
+    "No way! {person} should have had the last word in that segment!",
+    "Listen, I'm telling you, {topic} is going to change this whole show!",
+    "I can't believe the report left that out of the story!",
+    "Honestly, {person} is on another level as a guest, no question about it!",
+    "That's wild! {org} couldn't answer a single follow-up question!",
+    "I'm hearing the rumours about {person} and I'm getting excited, listeners!",
 ]
 
 # Sam's analytical style
 SAM_ANALYTICAL_TEMPLATES = [
-    "If you look at the data, the xG for {team} shows an interesting picture",
-    "Tactically, the {formation} gives an advantage in midfield possession",
-    "The data shows that {player} is top 5 in the league for {stat}",
-    "You need to look at this analytically, the pressing metrics show {team} dropped off",
-    "From a statistical standpoint, the {stat} for {player} is {value}",
-    "If you run a regression analysis on the performances, there's a clear positive trend",
+    "If you look at the data, the numbers for {org} tell an interesting story",
+    "Structurally, the {approach} gives the panel more room in the middle segment",
+    "The data shows {person} is in the top five for {metric} across the season",
+    "You need to look at this analytically, the engagement numbers show the audience dropped off",
+    "From a statistical standpoint, the {metric} for {person} is {value} this season",
+    "If you run a regression on the episode data, there is a clear positive trend",
 ]
 
-# English football terms used in mock data templates
+#: Recurring English vocabulary of the mock corpus. Every template above
+#: contains at least one of these, which is what makes the language-label and
+#: content checks in the test suite deterministic rather than lucky.
 ENGLISH_TERMS = [
-    "Premier League", "top 4", "VAR", "pressing", "build-up play",
-    "set pieces", "counter-attack", "xG", "clean sheet", "hat-trick",
-    "penalty", "corner kick", "offside", "substitution", "formation",
-    "3-4-3", "4-2-3-1", "midfield", "striker", "goalkeeper",
-    "defender", "winger",
+    "episode", "segment", "panel", "audience", "listener", "guest",
+    "host", "producer", "story", "question", "data", "report",
+    "season", "format", "show", "interview", "topic", "numbers",
+    "series", "project", "research", "feedback", "voices", "production",
 ]
 
 
@@ -278,29 +297,22 @@ def _weighted_choice(weights: dict[str, int]) -> str:
 def _fill_template(template: str) -> str:
     """Fill placeholders in a template string with random entities."""
     result = template
-    if "{team}" in result:
-        result = result.replace("{team}", random.choice(CLUBS))
-    if "{player}" in result:
-        result = result.replace("{player}", random.choice(PLAYERS))
-    if "{club}" in result:
-        result = result.replace("{club}", random.choice(CLUBS))
-    if "{formation}" in result:
-        result = result.replace("{formation}", random.choice(FORMATIONS))
+    if "{org}" in result:
+        result = result.replace("{org}", random.choice(ORGANIZATIONS))
+    if "{person}" in result:
+        result = result.replace("{person}", random.choice(PEOPLE))
+    if "{approach}" in result:
+        result = result.replace("{approach}", random.choice(APPROACHES))
     if "{adjective}" in result:
         result = result.replace("{adjective}", random.choice(ADJECTIVES))
-    if "{stat}" in result:
-        result = result.replace("{stat}", random.choice(STATS))
+    if "{metric}" in result:
+        result = result.replace("{metric}", random.choice(METRICS))
     if "{value}" in result:
-        result = result.replace("{value}", random.choice(STAT_VALUES))
-    if "{concept}" in result:
-        concepts = [
-            "pressing", "build-up play", "transfer window", "top 4 race",
-            "VAR decisions", "set pieces", "youth development", "midfield balance",
-            "defensive structure", "attacking transitions",
-        ]
-        result = result.replace("{concept}", random.choice(concepts))
-    if "{position}" in result:
-        result = result.replace("{position}", random.choice(POSITIONS))
+        result = result.replace("{value}", random.choice(METRIC_VALUES))
+    if "{topic}" in result:
+        result = result.replace("{topic}", random.choice(TOPICS))
+    if "{role}" in result:
+        result = result.replace("{role}", random.choice(ROLES))
     if "{name}" in result:
         names = list(SPEAKER_PROFILES.keys())
         result = result.replace("{name}", random.choice(names))
@@ -343,7 +355,7 @@ class MockTranscriber(TranscriptionInterface):
     - Multiple speakers (2-3 per episode)
     - Realistic timestamps and durations
     - Natural filler words with speaker-specific patterns
-    - Topic-specific terminology (the bundled corpus is football)
+    - Domain-neutral panel-discussion terminology
 
     Example:
         >>> transcriber = MockTranscriber(num_speakers=3)
@@ -533,22 +545,22 @@ class MockTranscriber(TranscriptionInterface):
         if profile["style"] == "host_moderate":
             pool = (
                 HOST_TRANSITION_TEMPLATES
-                + MATCH_ANALYSIS_TEMPLATES
+                + TOPIC_ANALYSIS_TEMPLATES
                 + GENERAL_OPINION_TEMPLATES
-                + PLAYER_DISCUSSION_TEMPLATES
+                + PERSON_DISCUSSION_TEMPLATES
             )
         elif profile["style"] == "host_passionate":
             pool = (
                 JORDAN_PASSIONATE_TEMPLATES
-                + MATCH_ANALYSIS_TEMPLATES
-                + TRANSFER_TALK_TEMPLATES
-                + PLAYER_DISCUSSION_TEMPLATES
+                + TOPIC_ANALYSIS_TEMPLATES
+                + NEWS_TALK_TEMPLATES
+                + PERSON_DISCUSSION_TEMPLATES
             )
         else:
             pool = (
                 SAM_ANALYTICAL_TEMPLATES
-                + TACTICAL_ANALYSIS_TEMPLATES
-                + PLAYER_DISCUSSION_TEMPLATES
+                + DEEP_DIVE_TEMPLATES
+                + PERSON_DISCUSSION_TEMPLATES
                 + GENERAL_OPINION_TEMPLATES
             )
 

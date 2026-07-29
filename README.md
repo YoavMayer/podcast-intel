@@ -15,7 +15,7 @@ Open-source podcast analysis and quality scoring framework. Automatically transc
 
 ### Feature Status
 
-> v0.3.0 is an early release. Some modules are production-ready, others are in active development.
+> v0.4.0 is an early release. Some modules are production-ready, others are in active development.
 
 | Component | Status | Notes |
 |-----------|--------|-------|

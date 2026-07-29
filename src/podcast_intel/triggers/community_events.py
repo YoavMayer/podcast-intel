@@ -22,6 +22,7 @@ Example:
 
 import json
 import logging
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -34,35 +35,166 @@ logger = logging.getLogger(__name__)
 #  Data models
 # ---------------------------------------------------------------------------
 
-@dataclass
+#: Field names that were football-shaped until 0.4.0, mapped to the neutral
+#: names that replaced them. The old names still work -- reading, writing and
+#: passing them to the constructor -- but each use raises a
+#: ``DeprecationWarning``. They are scheduled for removal one release after
+#: 0.4.0; nothing inside this package uses them any more.
+DEPRECATED_FIELD_ALIASES: dict[str, str] = {
+    "teams": "participants",
+    "score": "result",
+    "competition": "context",
+}
+
+
+def _warn_alias(old: str) -> None:
+    """Emit the one-release deprecation warning for a renamed field."""
+    warnings.warn(
+        f"CommunityEvent.{old} is deprecated; use "
+        f"CommunityEvent.{DEPRECATED_FIELD_ALIASES[old]} instead. "
+        f"The alias will be removed one release after 0.4.0.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
+@dataclass(init=False)
 class CommunityEvent:
     """
     A single community event detected by a provider.
 
-    Represents any event relevant to the podcast's community -- a match
-    result, an upcoming fixture, a meetup, a product release, etc.
+    Represents any event relevant to the podcast's community -- a meetup, a
+    product release, a conference talk, a council vote, a match result. The
+    field names are deliberately domain-neutral: a provider decides what
+    ``participants``, ``result`` and ``context`` mean for its own source.
 
     Attributes:
         event_id: Unique identifier for this event (provider-specific)
-        event_type: Category of event (e.g., "match", "fixture", "meetup")
+        event_type: Category of event (e.g., "release", "meetup", "match")
         status: Current status (e.g., "FINISHED", "SCHEDULED", "LIVE")
-        teams: List of team/participant names involved
-        score: Score or result string, if applicable
+        participants: Names involved -- people, teams, organisations, projects
+        result: Outcome string, if the event has one (e.g., "2-1", "passed")
         date: Event date as ISO-8601 string
-        competition: Competition or context name
+        context: The series, venue, competition or programme the event sits in
         summary: Human-readable one-line summary
         raw_data: Full raw data from the provider API
+
+    Deprecated aliases (``teams``, ``score``, ``competition``) still read,
+    write and construct; see :data:`DEPRECATED_FIELD_ALIASES`.
+
+    Example:
+        >>> event = CommunityEvent(
+        ...     event_id="42",
+        ...     event_type="release",
+        ...     status="FINISHED",
+        ...     participants=["Project Aurora"],
+        ...     result="v2.0 shipped",
+        ...     context="Q1 roadmap",
+        ... )
+        >>> event.participants
+        ['Project Aurora']
     """
 
     event_id: str
     event_type: str
     status: str
-    teams: list[str] = field(default_factory=list)
-    score: str | None = None
+    participants: list[str] = field(default_factory=list)
+    result: str | None = None
     date: str = ""
-    competition: str = ""
+    context: str = ""
     summary: str = ""
     raw_data: dict[str, Any] = field(default_factory=dict)
+
+    def __init__(
+        self,
+        event_id: str,
+        event_type: str,
+        status: str,
+        participants: list[str] | None = None,
+        result: str | None = None,
+        date: str = "",
+        context: str = "",
+        summary: str = "",
+        raw_data: dict[str, Any] | None = None,
+        *,
+        teams: list[str] | None = None,
+        score: str | None = None,
+        competition: str | None = None,
+    ) -> None:
+        """
+        Build an event, accepting the deprecated field names for one release.
+
+        Args:
+            event_id: Provider-specific unique identifier
+            event_type: Category of event
+            status: Current status string
+            participants: Names involved in the event
+            result: Outcome string, if any
+            date: ISO-8601 event date
+            context: Series/venue/competition the event belongs to
+            summary: Human-readable one-line summary
+            raw_data: Untouched provider payload
+            teams: Deprecated alias for ``participants``
+            score: Deprecated alias for ``result``
+            competition: Deprecated alias for ``context``
+        """
+        if teams is not None:
+            _warn_alias("teams")
+            if participants is None:
+                participants = teams
+        if score is not None:
+            _warn_alias("score")
+            if result is None:
+                result = score
+        if competition is not None:
+            _warn_alias("competition")
+            if not context:
+                context = competition
+
+        self.event_id = event_id
+        self.event_type = event_type
+        self.status = status
+        self.participants = [] if participants is None else participants
+        self.result = result
+        self.date = date
+        self.context = context
+        self.summary = summary
+        self.raw_data = {} if raw_data is None else raw_data
+
+    # -- deprecated aliases, one release only -------------------------------
+
+    @property
+    def teams(self) -> list[str]:
+        """Deprecated alias for :attr:`participants`."""
+        _warn_alias("teams")
+        return self.participants
+
+    @teams.setter
+    def teams(self, value: list[str]) -> None:
+        _warn_alias("teams")
+        self.participants = value
+
+    @property
+    def score(self) -> str | None:
+        """Deprecated alias for :attr:`result`."""
+        _warn_alias("score")
+        return self.result
+
+    @score.setter
+    def score(self, value: str | None) -> None:
+        _warn_alias("score")
+        self.result = value
+
+    @property
+    def competition(self) -> str:
+        """Deprecated alias for :attr:`context`."""
+        _warn_alias("competition")
+        return self.context
+
+    @competition.setter
+    def competition(self, value: str) -> None:
+        _warn_alias("competition")
+        self.context = value
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -161,6 +293,29 @@ class CommunityEventProvider(ABC):
         Returns:
             Formatted string representation of the event
         """
+
+    def talking_points(
+        self,
+        event: CommunityEvent,
+        max_points: int = 5,
+    ) -> list[str]:
+        """
+        Optional hook: domain-specific discussion prompts for an event.
+
+        This is where knowledge of what an event *means* belongs. The base
+        implementation returns an empty list, which makes the briefing
+        generator fall back to its domain-neutral prompts -- so a provider
+        only implements this if it has something better to say.
+
+        Args:
+            event: The community event to generate prompts for
+            max_points: Maximum number of prompts to return
+
+        Returns:
+            List of talking point strings, or an empty list to use the
+            generic prompts.
+        """
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -330,6 +485,7 @@ def check_upcoming_events(
 
 
 __all__ = [
+    "DEPRECATED_FIELD_ALIASES",
     "CommunityEvent",
     "CommunityEventProvider",
     "EventCheckResult",

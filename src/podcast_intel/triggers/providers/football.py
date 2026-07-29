@@ -143,13 +143,72 @@ class FootballProvider(CommunityEventProvider):
         Returns:
             Formatted string like "Home 2-1 Away (Competition, 2026-02-08)"
         """
-        teams_str = " vs ".join(event.teams) if event.teams else "Unknown"
-        score_str = f" {event.score}" if event.score else ""
-        comp_str = f" ({event.competition})" if event.competition else ""
+        teams_str = " vs ".join(event.participants) if event.participants else "Unknown"
+        score_str = f" {event.result}" if event.result else ""
+        comp_str = f" ({event.context})" if event.context else ""
         date_str = f" [{event.date[:10]}]" if event.date else ""
         status_str = f" [{event.status}]" if event.status else ""
 
         return f"{teams_str}{score_str}{comp_str}{date_str}{status_str}"
+
+    def talking_points(
+        self,
+        event: CommunityEvent,
+        max_points: int = 5,
+    ) -> list[str]:
+        """
+        Produce football-shaped discussion prompts for a match or fixture.
+
+        These templates used to live in the generic briefing generator, which
+        meant every podcast got asked about lineups and formations. They are
+        football knowledge, so they live in the football provider: a show that
+        does not load this provider never sees them.
+
+        Args:
+            event: The match or fixture to generate prompts for
+            max_points: Maximum number of prompts to return
+
+        Returns:
+            List of talking point strings (empty for events this provider
+            has nothing football-specific to say about).
+        """
+        teams = event.participants
+        home = teams[0] if len(teams) > 0 else "Home team"
+        away = teams[1] if len(teams) > 1 else "Away team"
+        competition = event.context
+
+        points: list[str] = []
+
+        if event.status == "FINISHED" and event.result:
+            home_goals, away_goals = _parse_goals(event.result)
+
+            if home_goals > away_goals:
+                points.append(f"{home} won {event.result} -- what were the key moments?")
+                points.append(f"How did {away} lose control of this match?")
+            elif away_goals > home_goals:
+                points.append(
+                    f"{away} won {event.result} away from home -- analyze the performance."
+                )
+                points.append(f"Where did {home} go wrong at home?")
+            else:
+                points.append(f"The match ended {event.result} -- was this a fair result?")
+                points.append("Which side should feel more disappointed with the draw?")
+
+            points.append(f"Player ratings: who stood out in {home} vs {away}?")
+            points.append(
+                f"Tactical analysis: what formations and strategies shaped this "
+                f"{competition} match?"
+            )
+            points.append("What does this result mean for the season standings?")
+
+        elif event.status in ("SCHEDULED", "TIMED"):
+            points.append(f"Preview: {home} vs {away} -- what to expect?")
+            points.append("Predicted lineups and key matchups to watch.")
+            points.append(f"Recent form: how are both sides performing in {competition}?")
+            points.append("Key players to watch and potential game-changers.")
+            points.append("Score prediction and tactical approach.")
+
+        return points[:max_points]
 
     # -------------------------------------------------------------------
     #  Internal API methods
@@ -306,13 +365,31 @@ def _parse_match(match_data: dict[str, Any]) -> CommunityEvent | None:
         event_id=str(match_id),
         event_type=event_type,
         status=status,
-        teams=[home_name, away_name],
-        score=score,
+        participants=[home_name, away_name],
+        result=score,
         date=utc_date,
-        competition=competition_name,
+        context=competition_name,
         summary=summary,
         raw_data=match_data,
     )
+
+
+def _parse_goals(score: str) -> tuple[int, int]:
+    """
+    Split a "2-1" / "1-0 (HT)" score string into home and away goals.
+
+    Args:
+        score: Score string as produced by :func:`_extract_score`
+
+    Returns:
+        ``(home_goals, away_goals)``, or ``(0, 0)`` if the string is not
+        a parseable scoreline.
+    """
+    parts = score.replace(" (HT)", "").split("-")
+    try:
+        return int(parts[0].strip()), int(parts[1].strip())
+    except (ValueError, IndexError):
+        return 0, 0
 
 
 def _extract_score(match_data: dict[str, Any]) -> str | None:

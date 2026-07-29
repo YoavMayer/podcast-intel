@@ -15,10 +15,13 @@ Uses unittest.mock to mock requests.get responses.
 import os
 from unittest.mock import MagicMock, patch
 
+from podcast_intel.triggers.briefing_generator import generate_briefing
 from podcast_intel.triggers.community_events import CommunityEvent
+from podcast_intel.triggers.providers import get_provider
 from podcast_intel.triggers.providers.football import (
     FootballProvider,
     _extract_score,
+    _parse_goals,
     _parse_match,
 )
 
@@ -130,9 +133,9 @@ class TestParseMatch:
         assert event.event_id == "12345"
         assert event.event_type == "match"
         assert event.status == "FINISHED"
-        assert event.teams == ["Team Alpha", "Team Beta"]
-        assert event.score == "2-1"
-        assert event.competition == "Premier League"
+        assert event.participants == ["Team Alpha", "Team Beta"]
+        assert event.result == "2-1"
+        assert event.context == "Premier League"
 
     def test_parse_scheduled_match(self):
         """Scheduled match is parsed as fixture with no score."""
@@ -143,8 +146,8 @@ class TestParseMatch:
         assert event.event_id == "99999"
         assert event.event_type == "fixture"
         assert event.status == "SCHEDULED"
-        assert event.score is None
-        assert "Team Gamma" in event.teams
+        assert event.result is None
+        assert "Team Gamma" in event.participants
 
     def test_parse_match_preserves_raw_data(self):
         """Parsed event contains original raw_data."""
@@ -230,6 +233,27 @@ class TestExtractScore:
 
 
 # ---------------------------------------------------------------------------
+#  _parse_goals tests
+# ---------------------------------------------------------------------------
+
+class TestParseGoals:
+    """Tests for the _parse_goals helper that reads a scoreline back."""
+
+    def test_parses_full_time_scoreline(self):
+        """A plain "2-1" splits into two ints."""
+        assert _parse_goals("2-1") == (2, 1)
+
+    def test_parses_half_time_scoreline(self):
+        """The "(HT)" suffix is stripped before parsing."""
+        assert _parse_goals("1-0 (HT)") == (1, 0)
+
+    def test_unparseable_scoreline_is_nil_nil(self):
+        """A result string that is not a scoreline degrades to (0, 0)."""
+        assert _parse_goals("postponed") == (0, 0)
+        assert _parse_goals("") == (0, 0)
+
+
+# ---------------------------------------------------------------------------
 #  FootballProvider tests
 # ---------------------------------------------------------------------------
 
@@ -286,7 +310,7 @@ class TestFootballProvider:
         assert len(events) == 2
         assert all(isinstance(e, CommunityEvent) for e in events)
         assert events[0].event_id == "1"
-        assert events[1].score == "0-3"
+        assert events[1].result == "0-3"
 
         # Verify API was called with correct parameters
         mock_get.assert_called_once()
@@ -385,10 +409,10 @@ class TestFootballProvider:
             event_id="1",
             event_type="match",
             status="FINISHED",
-            teams=["Liverpool", "Chelsea"],
-            score="3-0",
+            participants=["Liverpool", "Chelsea"],
+            result="3-0",
             date="2026-02-14T15:00:00Z",
-            competition="Premier League",
+            context="Premier League",
         )
 
         formatted = provider.format_event(event)
@@ -406,9 +430,9 @@ class TestFootballProvider:
             event_id="2",
             event_type="fixture",
             status="SCHEDULED",
-            teams=["Arsenal", "Brighton"],
+            participants=["Arsenal", "Brighton"],
             date="2026-02-21T17:30:00Z",
-            competition="FA Cup",
+            context="FA Cup",
         )
 
         formatted = provider.format_event(event)
@@ -441,3 +465,109 @@ class TestFootballProvider:
         call_kwargs = mock_get.call_args
         headers = call_kwargs.kwargs.get("headers", call_kwargs[1].get("headers", {}))
         assert headers.get("X-Auth-Token") == "my-secret-key"
+
+
+# ---------------------------------------------------------------------------
+#  The provider survives the de-sporting of the generic layer
+# ---------------------------------------------------------------------------
+
+class TestFootballStaysAWorkingPlugIn:
+    """
+    Football is one optional provider, not the shape of the framework.
+
+    These tests pin the contract from the other side: after the generic
+    ``CommunityEvent`` stopped being a fixture and the match-shaped talking
+    points left the briefing generator, the football plug-in still produces
+    football output end to end.
+    """
+
+    def _provider(self) -> FootballProvider:
+        with patch.dict(os.environ, {"FOOTBALL_DATA_API_KEY": "key"}):
+            return FootballProvider({"team_id": 73})
+
+    def test_provider_fills_the_neutral_fields(self):
+        """A parsed match populates participants/result/context, not teams/score."""
+        event = _parse_match(_make_match_response())
+        assert event.participants == ["Team Alpha", "Team Beta"]
+        assert event.result == "2-1"
+        assert event.context == "Premier League"
+        assert "teams" not in event.to_dict()
+
+    def test_talking_points_for_finished_match_are_football_shaped(self):
+        """The provider hook still yields match analysis for a finished game."""
+        event = _parse_match(_make_match_response(
+            home_name="Team Alpha", away_name="Team Beta",
+            home_score=3, away_score=1,
+        ))
+        points = self._provider().talking_points(event)
+
+        assert len(points) == 5
+        joined = " ".join(points)
+        assert "Team Alpha won 3-1" in joined
+        assert "Player ratings" in joined
+        assert "formations" in joined
+
+    def test_talking_points_for_draw_and_away_win(self):
+        """Both other scorelines get their own framing."""
+        provider = self._provider()
+
+        draw = _parse_match(_make_match_response(home_score=1, away_score=1))
+        assert "fair result" in " ".join(provider.talking_points(draw))
+
+        away_win = _parse_match(_make_match_response(home_score=0, away_score=2))
+        assert "away from home" in " ".join(provider.talking_points(away_win))
+
+    def test_talking_points_for_fixture_are_a_preview(self):
+        """A scheduled fixture gets preview prompts, not a post-mortem."""
+        event = _parse_match(_make_scheduled_match())
+        points = self._provider().talking_points(event)
+        joined = " ".join(points)
+        assert "Preview" in joined
+        assert "Predicted lineups" in joined
+
+    def test_talking_points_respects_max_points(self):
+        """The hook honours the caller's budget."""
+        event = _parse_match(_make_match_response())
+        assert len(self._provider().talking_points(event, max_points=2)) == 2
+
+    def test_talking_points_empty_for_unknown_status(self):
+        """A status the provider cannot read falls back to the generic prompts."""
+        event = _parse_match(_make_match_response(status="POSTPONED"))
+        assert self._provider().talking_points(event) == []
+
+    def test_briefing_with_provider_is_football_shaped(self):
+        """generate_briefing + FootballProvider still renders a match briefing."""
+        event = _parse_match(_make_match_response(
+            home_name="Team Alpha", away_name="Team Beta",
+            home_score=2, away_score=1,
+        ))
+        briefing = generate_briefing(
+            event,
+            {"podcast": {"name": "Show", "language": "en"}},
+            formats=["html", "whatsapp"],
+            provider=self._provider(),
+        )
+
+        for text in briefing.values():
+            assert "Team Alpha" in text
+            assert "2-1" in text
+            assert "Player ratings" in text
+
+    def test_briefing_without_provider_is_neutral(self):
+        """The same event with no provider gets no football vocabulary."""
+        event = _parse_match(_make_match_response())
+        briefing = generate_briefing(
+            event,
+            {"podcast": {"name": "Show", "language": "en"}},
+            formats=["whatsapp"],
+        )
+        text = briefing["whatsapp"]
+        assert "Team Alpha" in text
+        for football_word in ("Player ratings", "formations", "lineups", "standings"):
+            assert football_word not in text
+
+    def test_registry_still_resolves_football(self):
+        """The provider is still reachable by name from podcast.yaml."""
+        with patch.dict(os.environ, {"FOOTBALL_DATA_API_KEY": "key"}):
+            provider = get_provider("football", {"team_id": 73})
+        assert isinstance(provider, FootballProvider)

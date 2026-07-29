@@ -29,9 +29,17 @@ from podcast_intel.ingestion.mock_ingest import (
 from podcast_intel.models.database import Database
 from podcast_intel.models.schema import get_table_names
 from podcast_intel.transcription.mock_transcribe import (
+    ALL_TEMPLATES,
+    APPROACHES,
     ENGLISH_TERMS,
     FILLER_WORDS_ALL,
+    METRICS,
+    ORGANIZATIONS,
+    PEOPLE,
+    ROLES,
+    TOPICS,
     MockTranscriber,
+    _fill_template,
     _find_filler_words_in_text,
     generate_mock_transcription,
 )
@@ -838,8 +846,8 @@ class TestMockTranscriberGeneration:
         speakers_seen = {seg["speaker"] for seg in result.segments}
         assert len(speakers_seen) >= 2  # At minimum 2 speakers participate
 
-    def test_segments_contain_english_football_terms(self):
-        """At least some segments contain English football terminology."""
+    def test_segments_contain_english_domain_terms(self):
+        """At least some segments contain the corpus's English vocabulary."""
         t = MockTranscriber(num_speakers=3)
         result = t.transcribe(Path("fake.mp3"))
         has_english = False
@@ -850,7 +858,7 @@ class TestMockTranscriberGeneration:
                     break
             if has_english:
                 break
-        assert has_english, "No English football terms found in any segment"
+        assert has_english, "No English corpus terms found in any segment"
 
     def test_multiple_episodes_transcription(self, db_with_episodes):
         """Multiple episodes can each be transcribed independently."""
@@ -866,3 +874,72 @@ class TestMockTranscriberGeneration:
             for eid in episode_ids[:3]:
                 segs = db.get_segments_by_episode(conn, eid)
                 assert len(segs) > 0
+
+
+# ===================================================================
+# The mock corpus is the framework's shop window -- keep it neutral
+# ===================================================================
+
+#: Vocabulary that would make the demo corpus a football corpus again.
+SPORT_VOCABULARY = [
+    "Arsenal", "Chelsea", "Liverpool", "Manchester", "Premier League",
+    "xG", "VAR", "hat-trick", "penalty", "offside", "striker",
+    "goalkeeper", "winger", "midfield", "formation", "pitch",
+    "counter-attack", "clean sheet", "transfer window", "corner kick",
+    "set pieces", "lineup", "matchday", "the league",
+]
+
+
+class TestMockCorpusIsDomainNeutral:
+    """
+    ``podcast-intel mock`` is the README's 60-second demo.
+
+    Whatever this corpus talks about is what a stranger assumes the framework
+    is for, so it must belong to no domain -- and in particular must not name
+    real clubs, as it once did under a "Generic entities" header.
+    """
+
+    def test_no_sport_vocabulary_in_any_template(self):
+        """No template pool contains football language."""
+        offenders = [
+            (template, word)
+            for template in ALL_TEMPLATES
+            for word in SPORT_VOCABULARY
+            if word.lower() in template.lower()
+        ]
+        assert offenders == []
+
+    def test_no_sport_vocabulary_in_placeholder_entities(self):
+        """The fill-in entities name no real club and no playing position."""
+        entities = PEOPLE + ORGANIZATIONS + APPROACHES + ROLES + METRICS + TOPICS
+        offenders = [
+            (entity, word)
+            for entity in entities
+            for word in SPORT_VOCABULARY
+            if word.lower() in entity.lower()
+        ]
+        assert offenders == []
+
+    def test_no_sport_vocabulary_in_generated_segments(self):
+        """A generated transcript is football-free end to end."""
+        transcriber = MockTranscriber(num_speakers=3)
+        text = " ".join(
+            seg["text"] for seg in transcriber.transcribe(Path("fake.mp3")).segments
+        ).lower()
+        assert [word for word in SPORT_VOCABULARY if word.lower() in text] == []
+
+    def test_every_template_carries_a_corpus_term(self):
+        """
+        Every filled template contains a known term.
+
+        This is what makes the language and content assertions above
+        deterministic instead of dependent on which templates got drawn.
+        """
+        for template in ALL_TEMPLATES:
+            filled = _fill_template(template)
+            assert any(term in filled for term in ENGLISH_TERMS), template
+
+    def test_templates_leave_no_unfilled_placeholders(self):
+        """Every ``{placeholder}`` in the corpus has an entity list behind it."""
+        for template in ALL_TEMPLATES:
+            assert not re.search(r"\{[a-z_]+\}", _fill_template(template)), template

@@ -5,11 +5,12 @@ Generates multi-format briefing content (HTML, WhatsApp, social card)
 from community events, using podcast.yaml branding configuration for
 styling.
 
-KNOWN LIMITATION: the renderer is not yet sport-neutral. It reads the
-`teams`, `score` and `competition` fields of ``CommunityEvent`` directly and
-its talking-point templates assume a match. Generalising the event model and
-this renderer is tracked work; until then, treat the briefing output as
-football-shaped regardless of the podcast.
+The renderer is domain-neutral. It reads only the generic ``participants``,
+``result`` and ``context`` fields of ``CommunityEvent``, and its own talking
+points are neutral prompts. Domain-shaped prompts (a football preview, a
+release checklist) come from the provider's optional
+``CommunityEventProvider.talking_points()`` hook -- pass the provider to
+``generate_briefing()`` to use them.
 
 Defaults are Hebrew-first, matching ``presets.DEFAULT_LANGUAGE``: an
 unconfigured briefing renders ``dir="rtl"`` with a Heebo-first font stack.
@@ -35,11 +36,11 @@ Example:
     >>> from podcast_intel.triggers.community_events import CommunityEvent
     >>> event = CommunityEvent(
     ...     event_id="12345",
-    ...     event_type="match",
+    ...     event_type="panel",
     ...     status="FINISHED",
-    ...     teams=["Team A", "Team B"],
-    ...     score="2-1",
-    ...     competition="League",
+    ...     participants=["Group A", "Group B"],
+    ...     result="agreed",
+    ...     context="Annual review",
     ... )
     >>> result = generate_briefing(event, config)
     >>> print(result["html"])
@@ -47,12 +48,16 @@ Example:
 
 import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from podcast_intel.presets import DEFAULT_LANGUAGE
-from podcast_intel.triggers.community_events import CommunityEvent
+from podcast_intel.triggers.community_events import (
+    CommunityEvent,
+    CommunityEventProvider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +157,66 @@ def _get_podcast_info(config: dict[str, Any]) -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
+#  Event shape helpers
+# ---------------------------------------------------------------------------
+
+#: Separator between two participants when the event has no result yet.
+#: Deliberately not "vs" -- a release or a meetup is not a contest.
+NEUTRAL_SEPARATOR = "·"
+
+
+def headline_slots(event: CommunityEvent) -> tuple[str, str, str]:
+    """
+    Split an event into the three header slots the briefing layouts use.
+
+    The layouts are ``lead | divider | trail``. What fills them depends only
+    on how many participants the provider supplied, never on what kind of
+    event it is:
+
+    * no participants -- the summary carries the header on its own
+    * one participant -- name in the lead, result as the divider
+    * two participants -- one each side, result (or a neutral dot) between
+    * three or more -- all names in the lead, result as the divider
+
+    Args:
+        event: The community event to lay out
+
+    Returns:
+        ``(lead, divider, trail)`` -- any slot may be an empty string.
+
+    Example:
+        >>> ev = CommunityEvent("1", "vote", "FINISHED",
+        ...                     participants=["Motion 4"], result="passed")
+        >>> headline_slots(ev)
+        ('Motion 4', 'passed', '')
+    """
+    participants = [p for p in event.participants if p]
+    result = event.result or ""
+
+    if not participants:
+        return (event.summary or event.event_type, result, "")
+    if len(participants) == 1:
+        return (participants[0], result, "")
+    if len(participants) == 2:
+        return (participants[0], result or NEUTRAL_SEPARATOR, participants[1])
+    return (", ".join(participants), result, "")
+
+
+def _slugify(text: str) -> str:
+    """
+    Reduce a participant name to a filename-safe token.
+
+    Args:
+        text: Arbitrary participant or event name
+
+    Returns:
+        Lowercase token with runs of non-alphanumerics collapsed to ``_``,
+        or ``""`` if nothing survives.
+    """
+    return re.sub(r"[^0-9a-z]+", "_", text.lower()).strip("_")
+
+
+# ---------------------------------------------------------------------------
 #  Briefing generation
 # ---------------------------------------------------------------------------
 
@@ -160,6 +225,7 @@ def generate_briefing(
     config: dict[str, Any],
     formats: list[str] | None = None,
     output_dir: str | None = None,
+    provider: CommunityEventProvider | None = None,
 ) -> dict[str, str]:
     """
     Generate briefing content for a community event.
@@ -172,6 +238,8 @@ def generate_briefing(
         config: Full podcast.yaml configuration dictionary
         formats: List of output formats (default: ["html"])
         output_dir: Directory to save files to (optional)
+        provider: Optional provider whose ``talking_points()`` hook supplies
+            domain-specific prompts. Without it, the neutral prompts are used.
 
     Returns:
         Dictionary mapping format name to content string (or file path
@@ -190,13 +258,13 @@ def generate_briefing(
     results: dict[str, str] = {}
 
     if "html" in formats:
-        results["html"] = _generate_html_briefing(event, branding, podcast)
+        results["html"] = _generate_html_briefing(event, branding, podcast, provider)
 
     if "whatsapp" in formats:
-        results["whatsapp"] = _generate_whatsapp_briefing(event, podcast)
+        results["whatsapp"] = _generate_whatsapp_briefing(event, podcast, provider)
 
     if "social_card" in formats:
-        results["social_card"] = _generate_social_card(event, branding, podcast)
+        results["social_card"] = _generate_social_card(event, branding, podcast, provider)
 
     # Save to files if output_dir is specified
     if output_dir:
@@ -228,10 +296,8 @@ def _save_briefing_files(
 
     # Build filename prefix
     date_str = event.date[:10].replace("-", "") if event.date else datetime.now().strftime("%Y%m%d")
-    teams_slug = "_vs_".join(
-        t.lower().replace(" ", "_") for t in event.teams[:2]
-    ) if event.teams else "event"
-    prefix = f"{date_str}_{teams_slug}"
+    slugs = [s for s in (_slugify(p) for p in event.participants[:2]) if s]
+    prefix = f"{date_str}_{'_'.join(slugs) if slugs else 'event'}"
 
     file_paths: dict[str, str] = {}
 
@@ -272,6 +338,7 @@ def _generate_html_briefing(
     event: CommunityEvent,
     branding: dict[str, str],
     podcast: dict[str, str],
+    provider: CommunityEventProvider | None = None,
 ) -> str:
     """
     Generate a responsive HTML briefing page for a community event.
@@ -283,6 +350,7 @@ def _generate_html_briefing(
         event: The community event
         branding: Branding configuration (colors, fonts)
         podcast: Podcast identity (name, direction, language)
+        provider: Optional provider supplying domain-specific talking points
 
     Returns:
         Complete HTML document string
@@ -297,19 +365,17 @@ def _generate_html_briefing(
     pod_name_en = podcast["name_en"]
     pod_link = podcast["link"]
 
-    # Event data
-    teams = event.teams if event.teams else ["Team A", "Team B"]
-    home_team = teams[0] if len(teams) > 0 else "Home"
-    away_team = teams[1] if len(teams) > 1 else "Away"
-    score_display = event.score or "vs"
-    competition = event.competition or ""
+    # Event data -- generic slots, filled by whatever the provider supplied
+    lead, divider, trail = headline_slots(event)
+    context = event.context or ""
     event_date = event.date[:10] if event.date else datetime.now().strftime("%Y-%m-%d")
+    headline = " ".join(part for part in (lead, divider, trail) if part)
 
     # Status-based styling
     status_label = _status_display(event.status)
 
     # Talking points
-    talking_points = _generate_talking_points(event)
+    talking_points = _generate_talking_points(event, provider=provider)
     talking_points_html = ""
     for i, point in enumerate(talking_points, 1):
         talking_points_html += f"""
@@ -326,7 +392,7 @@ def _generate_html_briefing(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{home_team} {score_display} {away_team} | {pod_name}</title>
+<title>{headline} | {pod_name}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family={font.split(",")[0].strip()}:wght@300;400;500;600;700;800;900&display=swap');
 
@@ -375,7 +441,7 @@ body {{
     letter-spacing: 1px;
 }}
 
-.score-display {{
+.headline {{
     display: flex;
     justify-content: center;
     align-items: center;
@@ -383,16 +449,16 @@ body {{
     margin: 20px 0;
 }}
 
-.score-display .team {{
+.headline .participant {{
     font-size: 28px;
     font-weight: 800;
     min-width: 200px;
 }}
 
-.score-display .team.home {{ text-align: {("left" if direction == "rtl" else "right")}; }}
-.score-display .team.away {{ text-align: {("right" if direction == "rtl" else "left")}; }}
+.headline .participant.lead {{ text-align: {("left" if direction == "rtl" else "right")}; }}
+.headline .participant.trail {{ text-align: {("right" if direction == "rtl" else "left")}; }}
 
-.score-display .score {{
+.headline .result {{
     font-size: 56px;
     font-weight: 900;
     color: {accent};
@@ -489,8 +555,8 @@ h2 {{
 @media (max-width: 600px) {{
     .container {{ padding: 12px; }}
     .event-header {{ padding: 24px 16px; }}
-    .score-display .team {{ font-size: 20px; min-width: 100px; }}
-    .score-display .score {{ font-size: 40px; min-width: 70px; }}
+    .headline .participant {{ font-size: 20px; min-width: 100px; }}
+    .headline .result {{ font-size: 40px; min-width: 70px; }}
     section {{ padding: 20px 16px; }}
 }}
 </style>
@@ -501,11 +567,11 @@ h2 {{
     <!-- Event Header -->
     <div class="event-header">
         <div class="brand">{pod_name}</div>
-        <div class="event-meta">{competition} | {event_date}</div>
-        <div class="score-display">
-            <div class="team home">{home_team}</div>
-            <div class="score">{score_display}</div>
-            <div class="team away">{away_team}</div>
+        <div class="event-meta">{context} | {event_date}</div>
+        <div class="headline">
+            <div class="participant lead">{lead}</div>
+            <div class="result">{divider}</div>
+            <div class="participant trail">{trail}</div>
         </div>
         <div class="status-badge">{status_label}</div>
     </div>
@@ -520,7 +586,7 @@ h2 {{
     <section>
         <h2>{"Details" if lang == "en" else "Details"}</h2>
         <p><strong>Status:</strong> {status_label}</p>
-        <p><strong>Competition:</strong> {competition}</p>
+        <p><strong>Context:</strong> {context}</p>
         <p><strong>Date:</strong> {event_date}</p>
         <p><strong>Event ID:</strong> {event.event_id}</p>
     </section>
@@ -547,6 +613,7 @@ h2 {{
 def _generate_whatsapp_briefing(
     event: CommunityEvent,
     podcast: dict[str, str],
+    provider: CommunityEventProvider | None = None,
 ) -> str:
     """
     Generate a plain-text WhatsApp message for a community event.
@@ -556,6 +623,7 @@ def _generate_whatsapp_briefing(
     Args:
         event: The community event
         podcast: Podcast identity information
+        provider: Optional provider supplying domain-specific talking points
 
     Returns:
         Plain text string ready for WhatsApp
@@ -563,15 +631,13 @@ def _generate_whatsapp_briefing(
     pod_name = podcast["name"]
     pod_link = podcast["link"]
 
-    teams = event.teams if event.teams else ["Team A", "Team B"]
-    home_team = teams[0] if len(teams) > 0 else "Home"
-    away_team = teams[1] if len(teams) > 1 else "Away"
-    score = event.score or "vs"
+    lead, divider, trail = headline_slots(event)
+    headline = " ".join(part for part in (lead, divider, trail) if part)
 
     status_label = _status_display(event.status)
     event_date = event.date[:10] if event.date else ""
 
-    talking_points = _generate_talking_points(event)
+    talking_points = _generate_talking_points(event, provider=provider)
     points_text = ""
     for i, point in enumerate(talking_points, 1):
         points_text += f"\n{i}. {point}"
@@ -580,8 +646,8 @@ def _generate_whatsapp_briefing(
 
     msg = f"""*{pod_name}*
 
-*{home_team} {score} {away_team}*
-{event.competition} | {event_date} | {status_label}
+*{headline}*
+{event.context} | {event_date} | {status_label}
 
 ---
 
@@ -602,6 +668,7 @@ def _generate_social_card(
     event: CommunityEvent,
     branding: dict[str, str],
     podcast: dict[str, str],
+    provider: CommunityEventProvider | None = None,
 ) -> str:
     """
     Generate a square HTML social card (1080x1080) for a community event.
@@ -612,6 +679,7 @@ def _generate_social_card(
         event: The community event
         branding: Branding configuration (colors, fonts)
         podcast: Podcast identity information
+        provider: Optional provider supplying domain-specific talking points
 
     Returns:
         Complete HTML document string (1080x1080 viewport)
@@ -625,13 +693,11 @@ def _generate_social_card(
     pod_name = podcast["name"]
     pod_name_en = podcast["name_en"]
 
-    teams = event.teams if event.teams else ["Team A", "Team B"]
-    home_team = teams[0] if len(teams) > 0 else "Home"
-    away_team = teams[1] if len(teams) > 1 else "Away"
-    score_display = event.score or "vs"
+    lead, divider, trail = headline_slots(event)
+    headline = " ".join(part for part in (lead, divider, trail) if part)
     status_label = _status_display(event.status)
 
-    talking_points = _generate_talking_points(event, max_points=3)
+    talking_points = _generate_talking_points(event, max_points=3, provider=provider)
     points_html = ""
     for i, point in enumerate(talking_points, 1):
         points_html += f"""
@@ -648,7 +714,7 @@ def _generate_social_card(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1080">
-<title>{home_team} {score_display} {away_team} | {pod_name}</title>
+<title>{headline} | {pod_name}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family={font.split(",")[0].strip()}:wght@400;500;700;800;900&display=swap');
 
@@ -704,7 +770,7 @@ body {{
     border-bottom: 2px solid rgba(255,255,255,0.15);
 }}
 
-.competition {{
+.context {{
     font-size: 22px;
     font-weight: 500;
     color: rgba(255,255,255,0.55);
@@ -713,7 +779,7 @@ body {{
     letter-spacing: 2px;
 }}
 
-.teams-row {{
+.participants-row {{
     display: flex;
     justify-content: center;
     align-items: center;
@@ -721,16 +787,16 @@ body {{
     margin-bottom: 12px;
 }}
 
-.team-name {{
+.participant-name {{
     font-size: 42px;
     font-weight: 800;
     min-width: 260px;
 }}
 
-.team-name.home {{ text-align: {("left" if direction == "rtl" else "right")}; }}
-.team-name.away {{ text-align: {("right" if direction == "rtl" else "left")}; }}
+.participant-name.lead {{ text-align: {("left" if direction == "rtl" else "right")}; }}
+.participant-name.trail {{ text-align: {("right" if direction == "rtl" else "left")}; }}
 
-.score-box {{
+.result-box {{
     font-size: 72px;
     font-weight: 900;
     color: {accent};
@@ -817,11 +883,11 @@ body {{
     </div>
 
     <div class="event-header">
-        <div class="competition">{event.competition} | {event.date[:10] if event.date else ""}</div>
-        <div class="teams-row">
-            <div class="team-name home">{home_team}</div>
-            <div class="score-box">{score_display}</div>
-            <div class="team-name away">{away_team}</div>
+        <div class="context">{event.context} | {event.date[:10] if event.date else ""}</div>
+        <div class="participants-row">
+            <div class="participant-name lead">{lead}</div>
+            <div class="result-box">{divider}</div>
+            <div class="participant-name trail">{trail}</div>
         </div>
         <div class="status-badge">{status_label}</div>
     </div>
@@ -873,13 +939,48 @@ def _status_display(status: str) -> str:
 def _generate_talking_points(
     event: CommunityEvent,
     max_points: int = 5,
+    provider: CommunityEventProvider | None = None,
 ) -> list[str]:
     """
     Generate talking points for a community event.
 
-    Creates discussion prompts based on the event type, status, teams and
-    score. The templates are sport-shaped (lineups, formations, form) and are
-    emitted for every event of every podcast -- see the module docstring.
+    A provider that knows its domain gets first refusal via its
+    ``talking_points()`` hook -- that is where football previews, release
+    checklists or council-vote framings belong. If no provider is supplied,
+    or it returns nothing, the neutral prompts below are used. They reference
+    only ``participants``, ``result``, ``context`` and ``status``, so they
+    read sensibly for any kind of event.
+
+    Args:
+        event: The community event
+        max_points: Maximum number of talking points to generate
+        provider: Optional provider offering domain-specific prompts
+
+    Returns:
+        List of talking point strings
+    """
+    if provider is not None:
+        try:
+            domain_points = provider.talking_points(event, max_points=max_points)
+        except Exception as exc:  # a bad provider must not break the briefing
+            logger.warning(
+                "Provider %s raised in talking_points(); using neutral prompts: %s",
+                type(provider).__name__,
+                exc,
+            )
+            domain_points = []
+        if domain_points:
+            return list(domain_points)[:max_points]
+
+    return _neutral_talking_points(event, max_points)
+
+
+def _neutral_talking_points(
+    event: CommunityEvent,
+    max_points: int = 5,
+) -> list[str]:
+    """
+    Domain-neutral discussion prompts, used when no provider supplies any.
 
     Args:
         event: The community event
@@ -889,73 +990,25 @@ def _generate_talking_points(
         List of talking point strings
     """
     points: list[str] = []
-    teams = event.teams if event.teams else []
-    home = teams[0] if len(teams) > 0 else "Home team"
-    away = teams[1] if len(teams) > 1 else "Away team"
+    participants = [p for p in event.participants if p]
+    status_label = _status_display(event.status)
 
-    if event.status == "FINISHED" and event.score:
-        # Parse score for context
-        score_parts = event.score.replace(" (HT)", "").split("-")
-        try:
-            home_goals = int(score_parts[0].strip())
-            away_goals = int(score_parts[1].strip())
-        except (ValueError, IndexError):
-            home_goals = 0
-            away_goals = 0
+    if event.summary:
+        points.append(f"Recap: {event.summary}")
 
-        if home_goals > away_goals:
-            points.append(
-                f"{home} won {event.score} -- what were the key moments?"
-            )
-            points.append(
-                f"How did {away} lose control of this match?"
-            )
-        elif away_goals > home_goals:
-            points.append(
-                f"{away} won {event.score} away from home -- analyze the performance."
-            )
-            points.append(
-                f"Where did {home} go wrong at home?"
-            )
-        else:
-            points.append(
-                f"The match ended {event.score} -- was this a fair result?"
-            )
-            points.append(
-                "Which side should feel more disappointed with the draw?"
-            )
-
-        points.append(
-            f"Player ratings: who stood out in {home} vs {away}?"
-        )
-        points.append(
-            f"Tactical analysis: what formations and strategies shaped this {event.competition} match?"
-        )
-        points.append(
-            "What does this result mean for the season standings?"
-        )
-
+    if event.result:
+        points.append(f"The outcome was {event.result} -- was that the expected one?")
     elif event.status in ("SCHEDULED", "TIMED"):
-        points.append(
-            f"Preview: {home} vs {away} -- what to expect?"
-        )
-        points.append(
-            "Predicted lineups and key matchups to watch."
-        )
-        points.append(
-            f"Recent form: how are both sides performing in {event.competition}?"
-        )
-        points.append(
-            "Key players to watch and potential game-changers."
-        )
-        points.append(
-            "Score prediction and tactical approach."
-        )
+        points.append("What outcome should the community expect, and why?")
 
-    else:
-        points.append(f"Event update: {event.summary}")
-        points.append(f"Status: {_status_display(event.status)}")
-        points.append("Discussion: what are the implications?")
+    for name in participants[:2]:
+        points.append(f"What does this change for {name}?")
+
+    if event.context:
+        points.append(f"How does it sit in the wider picture of {event.context}?")
+
+    points.append(f"Status is {status_label} -- what are the implications?")
+    points.append("What should the community watch for next?")
 
     return points[:max_points]
 
@@ -990,5 +1043,8 @@ def _lighten_color(hex_color: str, factor: float = 0.15) -> str:
 
 
 __all__ = [
+    "NEUTRAL_SEPARATOR",
     "generate_briefing",
+    "headline_slots",
+    "text_direction",
 ]

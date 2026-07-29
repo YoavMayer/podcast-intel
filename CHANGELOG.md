@@ -5,6 +5,71 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-29
+
+### Changed
+
+- **BREAKING -- `CommunityEvent` is no longer shaped like a football fixture.**
+  The generic event dataclass carried `teams`, `score` and `competition` as
+  first-class fields, so every community event in the base -- a meetup, a
+  release, a council vote -- was modelled as a match. The fields are now
+  `participants`, `result` and `context`.
+
+  The old names still work for one release: they are accepted as constructor
+  keywords and readable and writable as attributes, each raising a
+  `DeprecationWarning` that names its replacement. `DEPRECATED_FIELD_ALIASES`
+  declares the mapping. **The serialized form has no alias** -- `to_dict()` and
+  `to_json()` emit `participants`/`result`/`context` only, so anything reading
+  a stored event payload by key must be updated now. The aliases are scheduled
+  for removal one release after 0.4.0.
+- **The briefing generator is domain-neutral.** It reads only the generic
+  fields, and `headline_slots()` lays an event out from participant count
+  alone: no participants renders the summary, one renders without inventing an
+  opponent, two keep the familiar three-slot layout, three or more list in the
+  lead. Two participants with no result get a neutral separator rather than
+  "vs". The fixture-shaped CSS hooks are renamed with them
+  (`score-display` -> `headline`, `team` -> `participant`, `score` -> `result`,
+  `teams-row` -> `participants-row`, `competition` -> `context`), and saved
+  filenames are `<date>_<participant>_<participant>` instead of `_vs_`.
+- **Football talking points moved behind a provider hook.** The match-shaped
+  templates (player ratings, formations, predicted lineups, season standings)
+  were emitted by `briefing_generator` for every event of every podcast. They
+  now live in `FootballProvider.talking_points()`, reached through the new
+  optional `CommunityEventProvider.talking_points()` hook. `generate_briefing()`
+  takes a `provider=` argument and the events CLI passes the configured one; a
+  podcast that does not load the football provider never sees football
+  vocabulary. Without a provider -- or if a provider returns nothing or raises
+  -- the briefing falls back to neutral prompts built from `participants`,
+  `result`, `context` and `status`. The football provider itself is unchanged
+  in behaviour and still resolves from `podcast.yaml` as `provider: "football"`.
+- **The mock corpus is a neutral panel discussion.** `mock_transcribe.py`
+  shipped an all-football template corpus that named real clubs (Arsenal,
+  Chelsea, Liverpool, Manchester City) under a "Generic entities" header. It is
+  what the demo prints, so it was the first thing a stranger read. The
+  templates are now about a podcast and its subject matter, and the fill-in
+  entities are invented. `MATCH_ANALYSIS_TEMPLATES`,
+  `PLAYER_DISCUSSION_TEMPLATES`, `TACTICAL_ANALYSIS_TEMPLATES` and
+  `TRANSFER_TALK_TEMPLATES` are renamed `TOPIC_ANALYSIS_TEMPLATES`,
+  `PERSON_DISCUSSION_TEMPLATES`, `DEEP_DIVE_TEMPLATES` and
+  `NEWS_TALK_TEMPLATES`; `PLAYERS`/`CLUBS`/`FORMATIONS`/`POSITIONS`/`STATS`/
+  `STAT_VALUES` become `PEOPLE`/`ORGANIZATIONS`/`APPROACHES`/`ROLES`/`METRICS`/
+  `METRIC_VALUES`, and `TOPICS` replaces the inline concept list. `ENGLISH_TERMS`
+  keeps its name and now holds the corpus's own vocabulary.
+
+### Added
+
+- `CommunityEventProvider.talking_points()` -- optional, non-abstract hook
+  returning domain-specific discussion prompts. Returning an empty list (the
+  base behaviour) selects the neutral prompts, so existing providers need no
+  change.
+- `briefing_generator.headline_slots()` and `NEUTRAL_SEPARATOR`, the public
+  layout primitive described above.
+- `tests/test_briefing_generator.py` (30 tests) covering the neutral renderer,
+  the provider hook and its failure modes, and the filename shape.
+- Tests pinning that football stays a working plug-in after the generic layer
+  stopped assuming it, and that the mock corpus contains no sport vocabulary
+  in its templates, its entities or a generated transcript.
+
 ## [0.3.0] - 2026-07-29
 
 ### Removed
