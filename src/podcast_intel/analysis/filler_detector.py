@@ -9,9 +9,8 @@ The filler word list is configurable via language presets (see presets/).
 """
 
 import re
-from typing import List, Dict, Any, Tuple, Optional
 from collections import defaultdict
-
+from typing import Any
 
 # Default English filler words and discourse markers.
 # For other languages, load filler lists from the preset YAML.
@@ -54,7 +53,7 @@ HEBREW_FILLERS = [
 ]
 
 
-def get_default_fillers(language: str = "en") -> List[str]:
+def get_default_fillers(language: str = "en") -> list[str]:
     """Return the default filler word list for a given language.
 
     Args:
@@ -69,7 +68,7 @@ def get_default_fillers(language: str = "en") -> List[str]:
     return list(DEFAULT_FILLERS)
 
 
-def build_filler_pattern(filler_words: List[str]) -> re.Pattern:
+def build_filler_pattern(filler_words: list[str]) -> re.Pattern:
     """Build a compiled regex pattern for filler detection.
 
     Multi-word fillers are sorted longest-first so that greedy alternation
@@ -95,8 +94,8 @@ def build_filler_pattern(filler_words: List[str]) -> re.Pattern:
 
 def detect_fillers_in_text(
     text: str,
-    filler_words: Optional[List[str]] = None,
-) -> List[Dict[str, Any]]:
+    filler_words: list[str] | None = None,
+) -> list[dict[str, Any]]:
     """Find all filler word occurrences in *text*.
 
     Args:
@@ -113,7 +112,7 @@ def detect_fillers_in_text(
         filler_words = get_default_fillers("en")
 
     pattern = build_filler_pattern(filler_words)
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for match in pattern.finditer(text):
         results.append({
             "word": match.group().lower(),
@@ -125,8 +124,8 @@ def detect_fillers_in_text(
 
 def count_fillers_in_text(
     text: str,
-    filler_words: Optional[List[str]] = None,
-) -> Dict[str, int]:
+    filler_words: list[str] | None = None,
+) -> dict[str, int]:
     """Count each filler word's occurrences in *text*.
 
     Args:
@@ -137,7 +136,7 @@ def count_fillers_in_text(
         Dictionary mapping each found filler word (lower-cased) to its count.
     """
     hits = detect_fillers_in_text(text, filler_words)
-    counts: Dict[str, int] = defaultdict(int)
+    counts: dict[str, int] = defaultdict(int)
     for hit in hits:
         counts[hit["word"]] += 1
     return dict(counts)
@@ -159,8 +158,8 @@ def compute_filler_rate(filler_count: int, duration_seconds: float) -> float:
 
 
 def detect_fillers(
-    segments: List[Dict[str, Any]],
-) -> Dict[str, Dict[str, Any]]:
+    segments: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
     """Detect filler words across all segments and aggregate per speaker.
 
     Args:
@@ -180,7 +179,7 @@ def detect_fillers(
         >>> print(fillers["Host"]["total_fillers"])
         >>> print(fillers["Host"]["filler_rate"])
     """
-    speaker_data: Dict[str, Dict[str, Any]] = {}
+    speaker_data: dict[str, dict[str, Any]] = {}
 
     for seg in segments:
         speaker = seg.get("speaker", "unknown")
@@ -219,7 +218,7 @@ def detect_fillers(
     return speaker_data
 
 
-def extract_filler_positions(text: str) -> List[Tuple[str, int]]:
+def extract_filler_positions(text: str) -> list[tuple[str, int]]:
     """Extract filler words with their character positions.
 
     This mirrors the behaviour of the reference implementation in

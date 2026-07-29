@@ -15,27 +15,26 @@ Covers:
 - Episode status transitions (pending -> processing -> completed)
 """
 
-import pytest
-import sqlite3
 import re
+import sqlite3
+from datetime import datetime
 from pathlib import Path
-from datetime import datetime, timedelta
 
-from podcast_intel.models.database import Database
-from podcast_intel.models.schema import create_all_tables, get_table_names
+import pytest
+
 from podcast_intel.ingestion.mock_ingest import (
-    generate_mock_episodes,
     create_test_episode,
+    generate_mock_episodes,
 )
+from podcast_intel.models.database import Database
+from podcast_intel.models.schema import get_table_names
 from podcast_intel.transcription.mock_transcribe import (
-    MockTranscriber,
-    generate_mock_transcription,
-    _find_filler_words_in_text,
-    FILLER_WORDS_ALL,
-    SPEAKER_PROFILES,
     ENGLISH_TERMS,
+    FILLER_WORDS_ALL,
+    MockTranscriber,
+    _find_filler_words_in_text,
+    generate_mock_transcription,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -638,20 +637,39 @@ class TestDataIntegrity:
                 )
 
     def test_language_check_constraint(self, db):
-        """Segment language must be he, en, or mixed."""
+        """
+        Segment language accepts any 2-10 character code.
+
+        The schema deliberately does NOT restrict the set to he/en/mixed: this
+        framework serves many podcasts in many languages. What it does enforce is
+        the length, which rejects an empty string or a prose sentence.
+        """
         with db.get_connection() as conn:
             eid = db.insert_episode(
                 conn, guid="lang-test", title="Lang",
                 pub_date="2024-01-01T00:00:00+00:00",
                 audio_url="https://example.com/lang.mp3",
             )
-        with pytest.raises(sqlite3.IntegrityError):
+
+        # Any plausible ISO code is accepted -- 'fr' is not special-cased away.
+        for code in ("he", "en", "mixed", "fr", "pt-BR"):
             with db.get_connection() as conn:
                 conn.execute(
                     """INSERT INTO segments (episode_id, start_time, end_time, text, language)
                        VALUES (?, ?, ?, ?, ?)""",
-                    (eid, 0.0, 1.0, "text", "fr"),
+                    (eid, 0.0, 1.0, "text", code),
                 )
+
+        # Out-of-range values are rejected.
+        for bad in ("", "x", "a-very-long-language-name"):
+            with pytest.raises(sqlite3.IntegrityError):
+                with db.get_connection() as conn:
+                    conn.execute(
+                        """INSERT INTO segments
+                           (episode_id, start_time, end_time, text, language)
+                           VALUES (?, ?, ?, ?, ?)""",
+                        (eid, 0.0, 1.0, "text", bad),
+                    )
 
     def test_entity_type_check_constraint(self, db):
         """Entity type must be one of the allowed values."""
@@ -771,6 +789,7 @@ class TestEpisodeStatusTransitions:
         with db.get_connection() as conn:
             ep_before = db.get_episode_by_id(conn, episode_ids[0])
             created_at = ep_before["created_at"]
+            updated_before = ep_before["updated_at"]
 
         # Transcribe
         generate_mock_transcription(db, episode_ids[0])
@@ -778,6 +797,9 @@ class TestEpisodeStatusTransitions:
         with db.get_connection() as conn:
             ep_after = db.get_episode_by_id(conn, episode_ids[0])
             assert ep_after["updated_at"] is not None
+            assert ep_after["updated_at"] >= updated_before
+            # created_at is immutable
+            assert ep_after["created_at"] == created_at
 
 
 # ===================================================================

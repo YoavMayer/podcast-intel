@@ -11,17 +11,13 @@ simulation. The default language is English but Hebrew and other
 languages can be configured via presets.
 """
 
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
 import random
+from pathlib import Path
+from typing import Any, TypedDict
 
-from podcast_intel.transcription.transcribe import (
-    TranscriptionInterface,
-    TranscriptionResult
-)
-from podcast_intel.models.database import Database
 from podcast_intel.config import get_config
-
+from podcast_intel.models.database import Database
+from podcast_intel.transcription.transcribe import TranscriptionInterface, TranscriptionResult
 
 # ---------------------------------------------------------------------------
 # English segment templates organized by topic category.
@@ -193,7 +189,19 @@ SAM_FILLER_WEIGHTS = {
 }
 
 # Speaker profile config
-SPEAKER_PROFILES = {
+
+
+class SpeakerProfile(TypedDict):
+    """Per-speaker generation knobs used by MockTranscriber."""
+
+    is_host: bool
+    filler_weights: dict[str, int]
+    filler_rate: float
+    pace_factor: float
+    style: str
+
+
+SPEAKER_PROFILES: dict[str, SpeakerProfile] = {
     "Alex": {
         "is_host": True,
         "filler_weights": ALEX_FILLER_WEIGHTS,
@@ -260,7 +268,7 @@ ENGLISH_TERMS = [
 ]
 
 
-def _weighted_choice(weights: Dict[str, int]) -> str:
+def _weighted_choice(weights: dict[str, int]) -> str:
     """Select a random item from a dict of {item: weight} pairs."""
     items = list(weights.keys())
     item_weights = list(weights.values())
@@ -458,7 +466,7 @@ class MockTranscriber(TranscriptionInterface):
             diarization=diarization,
         )
 
-    def get_word_timestamps(self, audio_path: Path) -> List[Dict[str, Any]]:
+    def get_word_timestamps(self, audio_path: Path) -> list[dict[str, Any]]:
         """
         Generate mock word-level timestamps.
 
@@ -595,7 +603,7 @@ class MockTranscriber(TranscriptionInterface):
 
         return text
 
-    def _generate_speaker_sequence(self, num_segments: int) -> List[int]:
+    def _generate_speaker_sequence(self, num_segments: int) -> list[int]:
         """
         Generate a natural speaker turn sequence for a conversation.
 
@@ -637,7 +645,7 @@ class MockTranscriber(TranscriptionInterface):
 
 def _find_filler_words_in_text(
     text: str,
-) -> List[Tuple[str, int]]:
+) -> list[tuple[str, int]]:
     """
     Scan text for known filler words and return their positions.
 
@@ -665,7 +673,7 @@ def _find_filler_words_in_text(
     return found
 
 
-def _get_speaker_ids(db: Database) -> Dict[str, int]:
+def _get_speaker_ids(db: Database) -> dict[str, int]:
     """
     Retrieve speaker name-to-id mapping from the database.
 
@@ -724,7 +732,6 @@ def generate_mock_transcription(db: Database, episode_id: int) -> int:
 
     # Map speaker labels to database IDs
     speaker_name_to_id = speaker_ids
-    speaker_names_ordered = list(SPEAKER_PROFILES.keys())[:len(speaker_ids)]
 
     segment_count = 0
     total_fillers = 0
@@ -744,7 +751,7 @@ def generate_mock_transcription(db: Database, episode_id: int) -> int:
             end_time = round(seg["end"] * time_scale, 2)
 
             # Resolve speaker
-            speaker_name = seg.get("speaker_name")
+            speaker_name = seg.get("speaker_name") or ""
             db_speaker_id = speaker_name_to_id.get(speaker_name)
 
             # Determine language label
@@ -803,9 +810,9 @@ def _generate_silence_events(
     conn: Any,
     episode_id: int,
     episode_duration: float,
-    segments: List[Dict[str, Any]],
+    segments: list[dict[str, Any]],
     time_scale: float,
-    speaker_name_to_id: Dict[str, int],
+    speaker_name_to_id: dict[str, int],
     num_events: int,
 ) -> int:
     """
@@ -868,10 +875,10 @@ def _generate_silence_events(
         following_speaker_id = None
 
         if gap_idx >= 0 and gap_idx < len(segments):
-            preceding_name = segments[gap_idx].get("speaker_name")
+            preceding_name = segments[gap_idx].get("speaker_name") or ""
             preceding_speaker_id = speaker_name_to_id.get(preceding_name)
         if gap_idx >= 0 and gap_idx + 1 < len(segments):
-            following_name = segments[gap_idx + 1].get("speaker_name")
+            following_name = segments[gap_idx + 1].get("speaker_name") or ""
             following_speaker_id = speaker_name_to_id.get(following_name)
 
         # For random positions without gap context, pick random speakers
@@ -903,7 +910,7 @@ def _generate_silence_events(
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def main():
+def main() -> None:
     """
     Main entry point for mock transcription script.
 

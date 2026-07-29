@@ -7,7 +7,6 @@ This document provides a complete reference for configuring podcast-intel.
 - [podcast.yaml Schema](#podcastyaml-schema)
 - [Environment Variables](#environment-variables)
 - [Language Presets](#language-presets)
-- [Specialization Files](#specialization-files)
 - [Configuration Precedence](#configuration-precedence)
 
 ## podcast.yaml Schema
@@ -237,7 +236,6 @@ Language presets provide pre-configured models and filler words for different la
 |----------|------|---------------|-----|-----------|
 | English | `en` | whisper-large-v3-turbo | bert-base-NER | roberta-sentiment |
 | Hebrew | `he` | ivrit-ai/whisper-large-v3-turbo | dictabert-ner | heBERT |
-| Spanish | `es` | whisper-large-v3-turbo | bert-spanish-ner | beto-sentiment |
 
 ### Using a Preset
 
@@ -263,120 +261,61 @@ models:
 
 ### Preset File Format
 
-Preset files are located in `src/podcast_intel/presets/{language}.yaml`:
+Preset files live in `src/podcast_intel/presets/{language}.yaml`. Two ship with the
+package -- `english.yaml` and `hebrew.yaml`. The format is:
 
 ```yaml
-# src/podcast_intel/presets/spanish.yaml
-language: "es"
+# src/podcast_intel/presets/hebrew.yaml
+language: "he"
 
 models:
-  transcription: "openai/whisper-large-v3-turbo"
-  ner: "mrm8488/bert-spanish-cased-finetuned-ner"
-  sentiment: "finiteautomata/beto-sentiment-analysis"
+  transcription: "ivrit-ai/whisper-large-v3-turbo"
+  ner: "dicta-il/dictabert-ner"
+  sentiment: "avichr/heBERT_sentiment_analysis"
 
 filler_words:
-  - "eh"
-  - "este"
-  - "bueno"
-  - "pues"
-  - "o sea"
-  - "entonces"
-  - "digamos"
+  - "אממ"
+  - "כאילו"
+  - "יעני"
 ```
 
-## Specialization Files
-
-For advanced use cases, you can create additional YAML files for domain-specific configuration.
-
-### speakers.yaml
-
-Detailed speaker profiles with metadata:
-
-```yaml
-speakers:
-  - id: host
-    name: "Alice Chen"
-    role: host
-    bio: "Tech journalist with 10 years experience"
-    expertise:
-      - "artificial intelligence"
-      - "software engineering"
-      - "startups"
-    social:
-      twitter: "@alicechen"
-      linkedin: "alice-chen"
-
-  - id: cohost
-    name: "Bob Martinez"
-    role: co-host
-    bio: "Former CTO turned podcaster"
-    expertise:
-      - "cloud computing"
-      - "devops"
-      - "leadership"
-```
-
-### entities.yaml
-
-Domain-specific entity lists for improved NER:
-
-```yaml
-entity_categories:
-  companies:
-    - "Google"
-    - "Apple"
-    - "Microsoft"
-    - "Amazon"
-    - "Meta"
-
-  technologies:
-    - "Python"
-    - "JavaScript"
-    - "React"
-    - "TensorFlow"
-    - "Kubernetes"
-
-  people:
-    - "Sam Altman"
-    - "Satya Nadella"
-    - "Sundar Pichai"
-
-  products:
-    - "ChatGPT"
-    - "GitHub Copilot"
-    - "Claude"
-```
-
-### scoring_weights.yaml
-
-Custom PQS weights for different podcast types:
-
-```yaml
-# For interview podcasts
-domain_weights:
-  audio: 0.15      # Higher audio quality expectations
-  delivery: 0.20
-  structure: 0.15
-  content: 0.35    # Focus on content quality
-  engagement: 0.15
-
-# For news/commentary podcasts
-# domain_weights:
-#   audio: 0.10
-#   delivery: 0.30  # Clear delivery is critical
-#   structure: 0.25 # Well-organized segments
-#   content: 0.25
-#   engagement: 0.10
-```
+See [CONTRIBUTING.md](../CONTRIBUTING.md#adding-language-presets) for how to add one.
 
 ## Configuration Precedence
 
-Configuration is merged in the following order (highest precedence first):
+`get_config()` merges four layers, highest precedence first:
 
-1. **Environment variables** (e.g., `PODCAST_INTEL_LANGUAGE=he`)
-2. **podcast.yaml** in current directory or parent directories
-3. **Language preset** (based on `language` setting)
-4. **Built-in defaults**
+1. **Environment variables** (e.g., `PODCAST_INTEL_LANGUAGE=he`) and the **`.env`** file
+2. **podcast.yaml** in the current directory or a parent
+3. **Language preset** for the resolved `podcast.language` (`presets/{lang}.yaml`)
+4. **Built-in defaults** (the field defaults on `Config`)
+
+The language itself is resolved with the same precedence: `PODCAST_INTEL_LANGUAGE`
+beats `podcast.language`, which beats the `"en"` default.
+
+### Which keys participate
+
+Only keys that `Config` models are merged. Everything else in `podcast.yaml`
+(`podcast.name`, `speakers`, `branding`, `scoring`, `triggers`) is read directly
+by the callers that need it -- `cli.py` and `triggers/rss_watcher.py` -- via
+`load_podcast_yaml()`.
+
+| podcast.yaml key | Config field |
+|---|---|
+| `podcast.language` | `language` |
+| `podcast.rss_url` | `rss_url` |
+| `models.transcription` | `transcription_model` |
+| `models.ner` | `ner_model` |
+| `models.sentiment` | `sentiment_model` |
+| `models.embedding` | `embedding_model` |
+| `models.reranker` | `reranker_model` |
+| `transcription.device` | `transcription_device` |
+| `transcription.compute_type` | `transcription_compute_type` |
+| `transcription.diarization_enabled` | `diarization_enabled` |
+| `analysis.filler_words` | `filler_words` |
+| `paths.db_path` / `paths.audio_dir` / `paths.embeddings_dir` | the matching path fields |
+
+A preset contributes `language`, the three `models.*` IDs and `filler_words`.
 
 ### Example
 
@@ -397,69 +336,33 @@ And this environment variable:
 export PODCAST_INTEL_NER_MODEL="custom/ner-model"
 ```
 
-The final configuration will be:
+The final configuration is:
 
-- `transcription`: `"openai/whisper-large-v3"` (from podcast.yaml)
-- `ner`: `"custom/ner-model"` (from environment variable)
-- `sentiment`: `"avichr/heBERT_sentiment_analysis"` (from Hebrew preset)
-- `embedding`: `"BAAI/bge-m3"` (from built-in defaults)
+- `transcription_model`: `"openai/whisper-large-v3"` (from podcast.yaml)
+- `ner_model`: `"custom/ner-model"` (from the environment)
+- `sentiment_model`: `"avichr/heBERT_sentiment_analysis"` (from the Hebrew preset)
+- `filler_words`: the Hebrew lexicon (from the Hebrew preset)
+- `embedding_model`: `"BAAI/bge-m3"` (built-in default -- no preset supplies it)
+
+This behaviour is covered by `tests/test_presets.py`.
 
 ## Validation
 
-podcast-intel validates configuration at startup using Pydantic. Common validation errors:
+`podcast.yaml` is parsed with `yaml.safe_load` and is **not** schema-validated today:
+unknown keys are ignored and malformed values are not rejected. The only validation
+that runs is Pydantic's on the `Config` object itself (types of environment
+variables and `.env` entries), which raises a `pydantic.ValidationError` on, for
+example, a non-boolean `PODCAST_INTEL_DIARIZATION_ENABLED`.
 
-### Invalid Language Code
+Consequences worth knowing:
 
-```
-ValidationError: language must be a 2-letter ISO 639-1 code (e.g., 'en', 'he')
-```
+- An unknown `podcast.language` (anything outside the shipped presets) is **not** an
+  error. No preset is applied and the built-in defaults stand.
+- A typo in a key name silently does nothing.
+- `branding.primary_color` and `scoring.domain_weights` are not checked.
 
-**Fix:** Use a valid language code like `"en"`, `"he"`, or `"es"`.
-
-### Missing Required Fields
-
-```
-ValidationError: podcast.name is required
-```
-
-**Fix:** Add the `name` field to your `podcast.yaml`:
-
-```yaml
-podcast:
-  name: "My Podcast"
-```
-
-### Invalid Color Format
-
-```
-ValidationError: primary_color must be a hex color (e.g., '#ff0000')
-```
-
-**Fix:** Use hex format for colors:
-
-```yaml
-branding:
-  primary_color: "#2563eb"  # Correct
-  # primary_color: "blue"   # Wrong
-```
-
-### Domain Weights Don't Sum to 1.0
-
-```
-ValidationError: scoring.domain_weights must sum to 1.0
-```
-
-**Fix:** Ensure weights add up to exactly 1.0:
-
-```yaml
-scoring:
-  domain_weights:
-    audio: 0.10
-    delivery: 0.25
-    structure: 0.20
-    content: 0.25
-    engagement: 0.20  # Total = 1.0
-```
+A `podcast.yaml` schema validator is **planned, not shipped**. Do not rely on
+configuration errors being reported.
 
 ## Best Practices
 
@@ -474,5 +377,3 @@ scoring:
 See the [examples/](../examples/) directory for complete configuration examples:
 
 - `examples/quickstart/podcast.yaml` - Basic English tech podcast
-- `examples/hebrew-sports/podcast.yaml` - Hebrew sports podcast with specialization
-- `examples/interview-show/podcast.yaml` - Interview podcast with custom weights

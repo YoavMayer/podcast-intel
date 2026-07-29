@@ -44,7 +44,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from podcast_intel.triggers.community_events import CommunityEvent
 
@@ -76,7 +76,7 @@ _DEFAULT_PODCAST = {
 #  Configuration helpers
 # ---------------------------------------------------------------------------
 
-def _get_branding(config: Dict[str, Any]) -> Dict[str, str]:
+def _get_branding(config: dict[str, Any]) -> dict[str, str]:
     """
     Extract branding configuration, falling back to defaults.
 
@@ -93,7 +93,7 @@ def _get_branding(config: Dict[str, Any]) -> Dict[str, str]:
     return branding
 
 
-def _get_podcast_info(config: Dict[str, Any]) -> Dict[str, str]:
+def _get_podcast_info(config: dict[str, Any]) -> dict[str, str]:
     """
     Extract podcast identity from configuration.
 
@@ -118,10 +118,10 @@ def _get_podcast_info(config: Dict[str, Any]) -> Dict[str, str]:
 
 def generate_briefing(
     event: CommunityEvent,
-    config: Dict[str, Any],
-    formats: Optional[List[str]] = None,
-    output_dir: Optional[str] = None,
-) -> Dict[str, str]:
+    config: dict[str, Any],
+    formats: list[str] | None = None,
+    output_dir: str | None = None,
+) -> dict[str, str]:
     """
     Generate briefing content for a community event.
 
@@ -148,7 +148,7 @@ def generate_briefing(
     branding = _get_branding(config)
     podcast = _get_podcast_info(config)
 
-    results: Dict[str, str] = {}
+    results: dict[str, str] = {}
 
     if "html" in formats:
         results["html"] = _generate_html_briefing(event, branding, podcast)
@@ -170,9 +170,9 @@ def generate_briefing(
 
 def _save_briefing_files(
     event: CommunityEvent,
-    content: Dict[str, str],
+    content: dict[str, str],
     output_dir: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Save briefing content to files and return file paths.
 
@@ -194,7 +194,7 @@ def _save_briefing_files(
     ) if event.teams else "event"
     prefix = f"{date_str}_{teams_slug}"
 
-    file_paths: Dict[str, str] = {}
+    file_paths: dict[str, str] = {}
 
     extension_map = {
         "html": ".html",
@@ -231,8 +231,8 @@ def _save_briefing_files(
 
 def _generate_html_briefing(
     event: CommunityEvent,
-    branding: Dict[str, str],
-    podcast: Dict[str, str],
+    branding: dict[str, str],
+    podcast: dict[str, str],
 ) -> str:
     """
     Generate a responsive HTML briefing page for a community event.
@@ -251,7 +251,6 @@ def _generate_html_briefing(
     primary = branding["primary_color"]
     secondary = branding["secondary_color"]
     accent = branding["accent_color"]
-    highlight = branding["highlight_color"]
     font = branding["font_family"]
     direction = podcast["direction"]
     lang = podcast["language"]
@@ -268,7 +267,6 @@ def _generate_html_briefing(
     event_date = event.date[:10] if event.date else datetime.now().strftime("%Y-%m-%d")
 
     # Status-based styling
-    is_finished = event.status == "FINISHED"
     status_label = _status_display(event.status)
 
     # Talking points
@@ -509,7 +507,7 @@ h2 {{
 
 def _generate_whatsapp_briefing(
     event: CommunityEvent,
-    podcast: Dict[str, str],
+    podcast: dict[str, str],
 ) -> str:
     """
     Generate a plain-text WhatsApp message for a community event.
@@ -563,8 +561,8 @@ def _generate_whatsapp_briefing(
 
 def _generate_social_card(
     event: CommunityEvent,
-    branding: Dict[str, str],
-    podcast: Dict[str, str],
+    branding: dict[str, str],
+    podcast: dict[str, str],
 ) -> str:
     """
     Generate a square HTML social card (1080x1080) for a community event.
@@ -836,7 +834,7 @@ def _status_display(status: str) -> str:
 def _generate_talking_points(
     event: CommunityEvent,
     max_points: int = 5,
-) -> List[str]:
+) -> list[str]:
     """
     Generate talking points for a community event.
 
@@ -851,7 +849,7 @@ def _generate_talking_points(
     Returns:
         List of talking point strings
     """
-    points: List[str] = []
+    points: list[str] = []
     teams = event.teams if event.teams else []
     home = teams[0] if len(teams) > 0 else "Home team"
     away = teams[1] if len(teams) > 1 else "Away team"

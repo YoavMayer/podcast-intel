@@ -14,11 +14,7 @@ Uses unittest.mock to isolate from real API calls.
 """
 
 import json
-import tempfile
 from datetime import datetime
-from pathlib import Path
-from typing import List
-from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -35,7 +31,6 @@ from podcast_intel.triggers.providers import (
     get_provider,
     list_providers,
 )
-
 
 # ---------------------------------------------------------------------------
 #  Helpers
@@ -72,10 +67,10 @@ class MockProvider(CommunityEventProvider):
         self.recent_events = []
         self.upcoming_events = []
 
-    def fetch_recent_events(self) -> List[CommunityEvent]:
+    def fetch_recent_events(self) -> list[CommunityEvent]:
         return self.recent_events
 
-    def fetch_upcoming_events(self) -> List[CommunityEvent]:
+    def fetch_upcoming_events(self) -> list[CommunityEvent]:
         return self.upcoming_events
 
     def format_event(self, event: CommunityEvent) -> str:

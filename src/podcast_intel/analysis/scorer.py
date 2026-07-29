@@ -11,14 +11,13 @@ Framework reference: reports/pqs_v3_framework.md
 Predecessor: PQS v2.1 (4 domains, 21 sub-metrics)
 """
 
-from typing import Dict, Any, List, Tuple
-
+from typing import Any
 
 # ============================================================
 # Utility
 # ============================================================
 
-def _piecewise_linear(value: float, breakpoints: List[Tuple[float, float]]) -> float:
+def _piecewise_linear(value: float, breakpoints: list[tuple[float, float]]) -> float:
     """Interpolate a score from piecewise-linear breakpoints.
 
     Args:
@@ -47,7 +46,7 @@ def _clamp(value: float, lo: float = 0.0, hi: float = 100.0) -> float:
     return max(lo, min(hi, value))
 
 
-def _score(value: float, breakpoints: List[Tuple[float, float]]) -> float:
+def _score(value: float, breakpoints: list[tuple[float, float]]) -> float:
     """Convenience: piecewise-linear then clamp to [0, 100]."""
     return round(_clamp(_piecewise_linear(value, breakpoints)), 2)
 
@@ -116,7 +115,7 @@ def score_spectral_balance(speech_band_pct: float) -> float:
     ])
 
 
-def compute_audio_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
+def compute_audio_domain(metrics: dict[str, float]) -> dict[str, Any]:
     """Compute Audio Quality domain from raw measurements.
 
     Expected keys: lufs, snr_db, clip_pct, lra_db, speech_band_pct
@@ -216,7 +215,7 @@ def score_hesitation_rate(per_hour: float) -> float:
     ])
 
 
-def compute_delivery_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
+def compute_delivery_domain(metrics: dict[str, float]) -> dict[str, Any]:
     """Compute Delivery & Dynamics domain from raw measurements."""
     fns = {
         "filler_rate": score_filler_rate,
@@ -312,7 +311,7 @@ def score_intro_structure(raw_score: float) -> float:
     ])
 
 
-def compute_structure_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
+def compute_structure_domain(metrics: dict[str, float]) -> dict[str, Any]:
     """Compute Structure & Flow domain from raw measurements."""
     fns = {
         "duration_fit": score_duration_fit,
@@ -408,7 +407,7 @@ def score_opinion_fact_ratio(ratio: float) -> float:
     ])
 
 
-def compute_content_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
+def compute_content_domain(metrics: dict[str, float]) -> dict[str, Any]:
     """Compute Content Depth domain from raw measurements.
 
     Expected keys: analytical_depth_ratio, content_words_per_minute,
@@ -517,7 +516,7 @@ def score_dropoff_risk_index(index: float) -> float:
     ])
 
 
-def compute_engagement_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
+def compute_engagement_domain(metrics: dict[str, float]) -> dict[str, Any]:
     """Compute Engagement Proxies domain from raw measurements."""
     fns = {
         "conversational_energy": score_conversational_energy,
@@ -541,12 +540,12 @@ def compute_engagement_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
 # ============================================================
 
 def compute_pqs(
-    audio_metrics: Dict[str, float],
-    delivery_metrics: Dict[str, float],
-    structure_metrics: Dict[str, float],
-    content_metrics: Dict[str, float],
-    engagement_metrics: Dict[str, float],
-) -> Dict[str, Any]:
+    audio_metrics: dict[str, float],
+    delivery_metrics: dict[str, float],
+    structure_metrics: dict[str, float],
+    content_metrics: dict[str, float],
+    engagement_metrics: dict[str, float],
+) -> dict[str, Any]:
     """Compute PQS v3 composite from raw metric values.
 
     Each dict maps sub-metric keys to raw values. See individual
@@ -599,8 +598,8 @@ def compute_pqs_from_domain_scores(
 
 
 def compute_domain_from_sub_scores(
-    sub_scores: Dict[str, float],
-    weights: Dict[str, float],
+    sub_scores: dict[str, float],
+    weights: dict[str, float],
 ) -> float:
     """Weighted sum of pre-computed sub-metric scores."""
     return round(sum(sub_scores[k] * weights[k] for k in weights), 2)
@@ -610,24 +609,24 @@ def compute_domain_from_sub_scores(
 # Backward-compatible helpers
 # ============================================================
 
-def compute_audio_quality_score(metrics: Dict[str, float]) -> float:
+def compute_audio_quality_score(metrics: dict[str, float]) -> float:
     """Compute Audio Quality domain score (0-100). Wrapper."""
-    return compute_audio_domain(metrics)["domain_score"]
+    return float(compute_audio_domain(metrics)["domain_score"])
 
 
-def compute_content_depth_score(metrics: Dict[str, float]) -> float:
+def compute_content_depth_score(metrics: dict[str, float]) -> float:
     """Compute Content Depth domain score (0-100). Wrapper."""
-    return compute_content_domain(metrics)["domain_score"]
+    return float(compute_content_domain(metrics)["domain_score"])
 
 
-def compute_structure_score(metrics: Dict[str, float]) -> float:
+def compute_structure_score(metrics: dict[str, float]) -> float:
     """Compute Structure & Flow domain score (0-100). Wrapper."""
-    return compute_structure_domain(metrics)["domain_score"]
+    return float(compute_structure_domain(metrics)["domain_score"])
 
 
-def compute_delivery_score(metrics: Dict[str, float]) -> float:
+def compute_delivery_score(metrics: dict[str, float]) -> float:
     """Compute Delivery & Dynamics domain score (0-100). Wrapper."""
-    return compute_delivery_domain(metrics)["domain_score"]
+    return float(compute_delivery_domain(metrics)["domain_score"])
 
 
 def normalize_metric(

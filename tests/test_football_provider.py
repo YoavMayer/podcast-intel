@@ -12,22 +12,15 @@ Validates the FootballProvider implementation including:
 Uses unittest.mock to mock requests.get responses.
 """
 
-import json
 import os
-from datetime import datetime, timedelta, timezone
-from unittest import mock
-from unittest.mock import MagicMock, patch, PropertyMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 from podcast_intel.triggers.community_events import CommunityEvent
 from podcast_intel.triggers.providers.football import (
     FootballProvider,
-    _parse_match,
     _extract_score,
-    API_BASE_URL,
+    _parse_match,
 )
-
 
 # ---------------------------------------------------------------------------
 #  Helpers -- build realistic API responses

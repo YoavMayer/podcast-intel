@@ -27,7 +27,7 @@ import re
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REPORTS_DIR = PROJECT_ROOT / "reports"
@@ -93,7 +93,7 @@ def _load_config() -> dict:
     if config_path.exists():
         try:
             import yaml
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}
         except ImportError:
             pass
@@ -130,7 +130,7 @@ class TextDiarizer:
             "host": list(KNOWN_SPEAKERS.values())[0] if KNOWN_SPEAKERS else "Host",
             "n_speakers": 3,
         })
-        self.labels: list[Optional[str]] = [None] * len(segments)
+        self.labels: list[str | None] = [None] * len(segments)
         self.confidence: list[float] = [0.0] * len(segments)
         self.evidence: list[list[str]] = [[] for _ in range(len(segments))]
 
@@ -536,17 +536,17 @@ def process_episode(episode_num: int) -> dict[str, Any]:
     label_stats = compute_label_stats(enriched)
 
     # Print summary
-    print(f"\n  Label statistics:")
+    print("\n  Label statistics:")
     print(f"    Total segments:   {label_stats['total_segments']}")
     print(f"    Labeled:          {label_stats['labeled_segments']}")
     print(f"    High confidence:  {label_stats['high_confidence_pct']}%")
-    print(f"\n  Segments by speaker:")
+    print("\n  Segments by speaker:")
     for spk, count in sorted(label_stats["segments_by_speaker"].items(),
                               key=lambda x: x[1], reverse=True):
         pct = count / label_stats["total_segments"] * 100
         print(f"    {spk}: {count} ({pct:.1f}%)")
 
-    print(f"\n  Speaker metrics:")
+    print("\n  Speaker metrics:")
     for spk, m in sorted(metrics.items(), key=lambda x: x[1]["word_count"], reverse=True):
         print(f"    {spk}:")
         print(f"      Words: {m['word_count']}, Duration: {m['total_duration_min']:.1f} min")
@@ -621,7 +621,7 @@ def process_episode(episode_num: int) -> dict[str, Any]:
     print(f"  Saved: {summary_path}")
 
     # Print first 10 segments as sample
-    print(f"\n  Sample (first 10 segments):")
+    print("\n  Sample (first 10 segments):")
     for seg in enriched[:10]:
         spk = seg["speaker_id"]
         conf = seg.get("speaker_confidence", 0)

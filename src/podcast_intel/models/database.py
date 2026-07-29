@@ -7,14 +7,28 @@ Includes proper error handling, connection management, and UTF-8 support for
 multilingual text.
 """
 
-import sqlite3
 import json
-from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
+import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 from .schema import create_all_tables
+
+
+def _last_insert_id(cursor: sqlite3.Cursor) -> int:
+    """
+    Return the row id sqlite assigned to the row just INSERTed.
+
+    ``Cursor.lastrowid`` is typed ``int | None`` because it is None for
+    statements that insert nothing. Every caller here runs a single INSERT, so
+    None means the driver did something unexpected and is worth surfacing.
+    """
+    row_id = cursor.lastrowid
+    if row_id is None:  # pragma: no cover - sqlite always sets this after INSERT
+        raise sqlite3.DatabaseError("INSERT did not produce a row id")
+    return row_id
 
 
 class Database:
@@ -53,7 +67,7 @@ class Database:
         create_all_tables(self.db_path)
 
     @contextmanager
-    def get_connection(self):
+    def get_connection(self) -> Iterator[sqlite3.Connection]:
         """
         Context manager for database connections.
 
@@ -102,10 +116,10 @@ class Database:
         title: str,
         pub_date: str,
         audio_url: str,
-        description: Optional[str] = None,
-        audio_path: Optional[str] = None,
-        duration_seconds: Optional[int] = None,
-        file_size_bytes: Optional[int] = None,
+        description: str | None = None,
+        audio_path: str | None = None,
+        duration_seconds: int | None = None,
+        file_size_bytes: int | None = None,
         episode_type: str = "full",
     ) -> int:
         """
@@ -148,11 +162,11 @@ class Database:
                 episode_type,
             ),
         )
-        return cursor.lastrowid
+        return _last_insert_id(cursor)
 
     def get_episode_by_guid(
         self, conn: sqlite3.Connection, guid: str
-    ) -> Optional[sqlite3.Row]:
+    ) -> sqlite3.Row | None:
         """
         Retrieve an episode by its GUID.
 
@@ -164,11 +178,12 @@ class Database:
             Episode row or None if not found
         """
         cursor = conn.execute("SELECT * FROM episodes WHERE guid = ?", (guid,))
-        return cursor.fetchone()
+        row: sqlite3.Row | None = cursor.fetchone()
+        return row
 
     def get_episode_by_id(
         self, conn: sqlite3.Connection, episode_id: int
-    ) -> Optional[sqlite3.Row]:
+    ) -> sqlite3.Row | None:
         """
         Retrieve an episode by its ID.
 
@@ -180,7 +195,8 @@ class Database:
             Episode row or None if not found
         """
         cursor = conn.execute("SELECT * FROM episodes WHERE id = ?", (episode_id,))
-        return cursor.fetchone()
+        row: sqlite3.Row | None = cursor.fetchone()
+        return row
 
     def update_episode_status(
         self, conn: sqlite3.Connection, episode_id: int, status: str
@@ -202,9 +218,9 @@ class Database:
         self,
         conn: sqlite3.Connection,
         name: str,
-        name_localized: Optional[str] = None,
+        name_localized: str | None = None,
         is_host: bool = False,
-        voice_embedding: Optional[bytes] = None,
+        voice_embedding: bytes | None = None,
     ) -> int:
         """
         Insert or get a speaker record.
@@ -223,7 +239,7 @@ class Database:
         cursor = conn.execute("SELECT id FROM speakers WHERE name = ?", (name,))
         row = cursor.fetchone()
         if row:
-            return row[0]
+            return int(row[0])
 
         # Insert new speaker
         cursor = conn.execute(
@@ -233,11 +249,11 @@ class Database:
             """,
             (name, name_localized, 1 if is_host else 0, voice_embedding),
         )
-        return cursor.lastrowid
+        return _last_insert_id(cursor)
 
     def get_speaker_by_name(
         self, conn: sqlite3.Connection, name: str
-    ) -> Optional[sqlite3.Row]:
+    ) -> sqlite3.Row | None:
         """
         Retrieve a speaker by name.
 
@@ -249,7 +265,8 @@ class Database:
             Speaker row or None if not found
         """
         cursor = conn.execute("SELECT * FROM speakers WHERE name = ?", (name,))
-        return cursor.fetchone()
+        row: sqlite3.Row | None = cursor.fetchone()
+        return row
 
     def insert_segment(
         self,
@@ -258,11 +275,11 @@ class Database:
         start_time: float,
         end_time: float,
         text: str,
-        speaker_id: Optional[int] = None,
-        word_count: Optional[int] = None,
+        speaker_id: int | None = None,
+        word_count: int | None = None,
         language: str = "en",
-        sentiment_score: Optional[float] = None,
-        confidence: Optional[float] = None,
+        sentiment_score: float | None = None,
+        confidence: float | None = None,
     ) -> int:
         """
         Insert a transcript segment.
@@ -305,11 +322,11 @@ class Database:
                 confidence,
             ),
         )
-        return cursor.lastrowid
+        return _last_insert_id(cursor)
 
     def get_segments_by_episode(
         self, conn: sqlite3.Connection, episode_id: int
-    ) -> List[sqlite3.Row]:
+    ) -> list[sqlite3.Row]:
         """
         Retrieve all segments for an episode, ordered by start time.
 
@@ -331,9 +348,9 @@ class Database:
         conn: sqlite3.Connection,
         canonical_name: str,
         entity_type: str,
-        name_localized: Optional[str] = None,
-        external_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        name_localized: str | None = None,
+        external_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> int:
         """
         Insert or get an entity record.
@@ -356,7 +373,7 @@ class Database:
         )
         row = cursor.fetchone()
         if row:
-            return row[0]
+            return int(row[0])
 
         # Insert new entity
         metadata_json = json.dumps(metadata) if metadata else None
@@ -367,7 +384,7 @@ class Database:
             """,
             (canonical_name, entity_type, name_localized, external_id, metadata_json),
         )
-        return cursor.lastrowid
+        return _last_insert_id(cursor)
 
     def insert_entity_mention(
         self,
@@ -376,7 +393,7 @@ class Database:
         segment_id: int,
         episode_id: int,
         mention_text: str,
-        start_offset: Optional[int] = None,
+        start_offset: int | None = None,
         confidence: float = 1.0,
     ) -> int:
         """
@@ -402,7 +419,7 @@ class Database:
             """,
             (entity_id, segment_id, episode_id, mention_text, start_offset, confidence),
         )
-        return cursor.lastrowid
+        return _last_insert_id(cursor)
 
     def insert_metric(
         self,
@@ -410,8 +427,8 @@ class Database:
         episode_id: int,
         metric_name: str,
         metric_value: float,
-        speaker_id: Optional[int] = None,
-        metric_unit: Optional[str] = None,
+        speaker_id: int | None = None,
+        metric_unit: str | None = None,
     ) -> int:
         """
         Insert or update a metric.
@@ -437,11 +454,11 @@ class Database:
             """,
             (episode_id, speaker_id, metric_name, metric_value, metric_unit),
         )
-        return cursor.lastrowid
+        return _last_insert_id(cursor)
 
     def get_metrics_by_episode(
         self, conn: sqlite3.Connection, episode_id: int
-    ) -> List[sqlite3.Row]:
+    ) -> list[sqlite3.Row]:
         """
         Retrieve all metrics for an episode.
 
@@ -464,8 +481,8 @@ class Database:
         segment_id: int,
         episode_id: int,
         filler_text: str,
-        speaker_id: Optional[int] = None,
-        position_offset: Optional[int] = None,
+        speaker_id: int | None = None,
+        position_offset: int | None = None,
     ) -> int:
         """
         Insert a filler word occurrence.
@@ -488,7 +505,7 @@ class Database:
             """,
             (segment_id, episode_id, speaker_id, filler_text, position_offset),
         )
-        return cursor.lastrowid
+        return _last_insert_id(cursor)
 
     def insert_silence_event(
         self,
@@ -498,8 +515,8 @@ class Database:
         end_time: float,
         duration: float,
         event_type: str = "dead_air",
-        preceding_speaker_id: Optional[int] = None,
-        following_speaker_id: Optional[int] = None,
+        preceding_speaker_id: int | None = None,
+        following_speaker_id: int | None = None,
     ) -> int:
         """
         Insert a silence event.
@@ -534,16 +551,16 @@ class Database:
                 following_speaker_id,
             ),
         )
-        return cursor.lastrowid
+        return _last_insert_id(cursor)
 
     def insert_coaching_note(
         self,
         conn: sqlite3.Connection,
         episode_id: int,
         speaker_id: int,
-        strengths: List[str],
-        improvements: List[str],
-        trends: Optional[Dict[str, Any]] = None,
+        strengths: list[str],
+        improvements: list[str],
+        trends: dict[str, Any] | None = None,
         generated_by: str = "gpt-4o-mini",
     ) -> int:
         """
@@ -583,11 +600,11 @@ class Database:
                 generated_by,
             ),
         )
-        return cursor.lastrowid
+        return _last_insert_id(cursor)
 
     def get_all_episodes(
-        self, conn: sqlite3.Connection, limit: Optional[int] = None
-    ) -> List[sqlite3.Row]:
+        self, conn: sqlite3.Connection, limit: int | None = None
+    ) -> list[sqlite3.Row]:
         """
         Retrieve all episodes, ordered by publication date (newest first).
 
@@ -605,8 +622,8 @@ class Database:
         return cursor.fetchall()
 
     def get_entity_mention_counts(
-        self, conn: sqlite3.Connection, entity_type: Optional[str] = None, limit: int = 50
-    ) -> List[Tuple[str, str, int]]:
+        self, conn: sqlite3.Connection, entity_type: str | None = None, limit: int = 50
+    ) -> list[tuple[str, str, int]]:
         """
         Get entity mention counts, optionally filtered by entity type.
 

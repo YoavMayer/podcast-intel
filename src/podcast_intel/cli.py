@@ -15,11 +15,12 @@ Usage:
 
 import argparse
 import sys
+from typing import Any
 
 from podcast_intel.config import get_config, load_podcast_yaml
 
 
-def cmd_ingest(args):
+def cmd_ingest(args: argparse.Namespace) -> None:
     """Fetch RSS feed and download new episodes."""
     config = get_config()
     if not config.rss_url:
@@ -32,13 +33,13 @@ def cmd_ingest(args):
     print(f"Found {len(episodes)} episodes in RSS feed")
 
 
-def cmd_mock(args):
+def cmd_mock(args: argparse.Namespace) -> None:
     """Generate mock data for testing."""
-    from podcast_intel.ingestion.mock_ingest import generate_mock_episodes, main as mock_main
+    from podcast_intel.ingestion.mock_ingest import main as mock_main
     mock_main()
 
 
-def cmd_watch(args):
+def cmd_watch(args: argparse.Namespace) -> None:
     """Check RSS feed for new episodes and optionally trigger analysis."""
     config = get_config()
 
@@ -70,7 +71,6 @@ def cmd_watch(args):
         elif args.auto_analyze:
             print("\nTriggering analysis pipeline...")
             # Import and run ingest for each new episode
-            from podcast_intel.ingestion.rss_parser import parse_rss_feed
             for ep in result.episodes:
                 print(f"  Ingesting: {ep.title}")
             print("(Full auto-analyze pipeline not yet wired -- use tools/run_episode_analysis.py)")
@@ -85,7 +85,7 @@ def cmd_watch(args):
 #  Events subcommands
 # ---------------------------------------------------------------------------
 
-def _load_events_config():
+def _load_events_config() -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Load community_events trigger configuration from podcast.yaml.
 
@@ -110,7 +110,7 @@ def _load_events_config():
     return ce_config, yaml_config
 
 
-def cmd_events_check(args):
+def cmd_events_check(args: argparse.Namespace) -> None:
     """Check for recent community events."""
     from podcast_intel.triggers.community_events import check_community_events
 
@@ -147,7 +147,7 @@ def cmd_events_check(args):
     print(f"Checked at: {result.checked_at}")
 
 
-def cmd_events_upcoming(args):
+def cmd_events_upcoming(args: argparse.Namespace) -> None:
     """Show upcoming community events."""
     from podcast_intel.triggers.community_events import check_upcoming_events
 
@@ -179,10 +179,10 @@ def cmd_events_upcoming(args):
         print(f"No upcoming events found (provider: {result.provider_name}).")
 
 
-def cmd_events_briefing(args):
+def cmd_events_briefing(args: argparse.Namespace) -> None:
     """Generate briefing for a community event."""
-    from podcast_intel.triggers.community_events import check_community_events
     from podcast_intel.triggers.briefing_generator import generate_briefing
+    from podcast_intel.triggers.community_events import check_community_events
 
     ce_config, yaml_config = _load_events_config()
 
@@ -236,7 +236,7 @@ def cmd_events_briefing(args):
         print(f"  - {fmt}: {path}")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         prog="podcast-intel",
         description="Podcast Intelligence System -- analyze and improve your podcast",

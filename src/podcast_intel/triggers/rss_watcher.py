@@ -22,15 +22,15 @@ Example:
 
 import json
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 import feedparser
 from dateutil import parser as date_parser
 
-from podcast_intel.config import get_config, load_podcast_yaml, PROJECT_ROOT
+from podcast_intel.config import PROJECT_ROOT, get_config, load_podcast_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +61,10 @@ class EpisodeMetadata:
     pub_date: str = ""
     duration: str = ""
     description: str = ""
-    file_size_bytes: Optional[int] = None
+    file_size_bytes: int | None = None
     episode_type: str = "full"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
 
@@ -85,14 +85,14 @@ class WatchResult:
     """
 
     has_new_episodes: bool = False
-    episodes: List[EpisodeMetadata] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    episodes: list[EpisodeMetadata] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     checked_at: str = ""
     feed_title: str = ""
     total_feed_episodes: int = 0
     known_guid_count: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "has_new_episodes": self.has_new_episodes,
@@ -116,8 +116,8 @@ class WatchResult:
 
 def check_new_episodes(
     rss_url: str,
-    known_guids: Set[str],
-) -> List[EpisodeMetadata]:
+    known_guids: set[str],
+) -> list[EpisodeMetadata]:
     """
     Fetch the RSS feed and return episodes whose GUIDs are not in known_guids.
 
@@ -144,7 +144,7 @@ def check_new_episodes(
             f"Failed to parse RSS feed: {feed.bozo_exception}"
         )
 
-    new_episodes: List[EpisodeMetadata] = []
+    new_episodes: list[EpisodeMetadata] = []
 
     for entry in feed.entries:
         guid = entry.get("id") or entry.get("guid", "")
@@ -202,7 +202,7 @@ def check_new_episodes(
     return new_episodes
 
 
-def _extract_audio_url(entry: Any) -> Optional[str]:
+def _extract_audio_url(entry: Any) -> str | None:
     """
     Extract audio URL from a feedparser entry's enclosures or links.
 
@@ -218,7 +218,7 @@ def _extract_audio_url(entry: Any) -> Optional[str]:
             if enc.get("type", "").startswith("audio/"):
                 url = enc.get("href") or enc.get("url")
                 if url:
-                    return url
+                    return str(url)
 
     # Fallback to links
     if hasattr(entry, "links"):
@@ -226,12 +226,12 @@ def _extract_audio_url(entry: Any) -> Optional[str]:
             if link.get("type", "").startswith("audio/"):
                 url = link.get("href")
                 if url:
-                    return url
+                    return str(url)
 
     return None
 
 
-def _extract_file_size(entry: Any) -> Optional[int]:
+def _extract_file_size(entry: Any) -> int | None:
     """
     Extract audio file size from a feedparser entry's enclosures.
 
@@ -253,7 +253,7 @@ def _extract_file_size(entry: Any) -> Optional[int]:
     return None
 
 
-def _load_known_guids_from_db(db_path: Path) -> Set[str]:
+def _load_known_guids_from_db(db_path: Path) -> set[str]:
     """
     Load known episode GUIDs from the SQLite database.
 
@@ -269,7 +269,7 @@ def _load_known_guids_from_db(db_path: Path) -> Set[str]:
     from podcast_intel.models.database import Database
 
     db = Database(db_path)
-    guids: Set[str] = set()
+    guids: set[str] = set()
     try:
         with db.get_connection() as conn:
             cursor = conn.execute("SELECT guid FROM episodes")
@@ -280,7 +280,7 @@ def _load_known_guids_from_db(db_path: Path) -> Set[str]:
     return guids
 
 
-def _load_known_guids_from_json(json_path: Path) -> Set[str]:
+def _load_known_guids_from_json(json_path: Path) -> set[str]:
     """
     Load known episode GUIDs from a JSON registry file.
 
@@ -306,7 +306,7 @@ def _load_known_guids_from_json(json_path: Path) -> Set[str]:
     return set()
 
 
-def load_known_guids(config: Optional[Any] = None) -> Set[str]:
+def load_known_guids(config: Any | None = None) -> set[str]:
     """
     Load all known episode GUIDs from both DB and JSON sources.
 
@@ -326,7 +326,7 @@ def load_known_guids(config: Optional[Any] = None) -> Set[str]:
     if config is None:
         config = get_config()
 
-    guids: Set[str] = set()
+    guids: set[str] = set()
 
     # Load from database
     guids |= _load_known_guids_from_db(config.db_path)
@@ -346,7 +346,7 @@ def load_known_guids(config: Optional[Any] = None) -> Set[str]:
 # ---------------------------------------------------------------------------
 
 def run_watch(
-    config: Optional[Any] = None,
+    config: Any | None = None,
     once: bool = True,
     dry_run: bool = False,
 ) -> WatchResult:

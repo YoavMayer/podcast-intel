@@ -64,9 +64,14 @@ htmlcov/
 
 # User podcast config (contains user-specific settings)
 podcast.yaml
+# ...but the shipped example must be published; README/CONTRIBUTING point at it.
+!examples/quickstart/podcast.yaml
 
 # Local-only drafts (not published)
 STAKEHOLDER_PANEL_REVIEW.md
 
 # Claude Code / babysitter cache
 .a5c/
+
+# uv resolver lockfile (local dev only; CI installs with pip)
+uv.lock

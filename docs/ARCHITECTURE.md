@@ -196,18 +196,28 @@ Environment Variables (highest priority)
 **Configuration Flow:**
 
 ```python
-# Load configuration
-config = Config()  # Loads from .env and environment
+from podcast_intel.config import get_config
 
-# Load podcast.yaml
-podcast_yaml = load_podcast_yaml()
-
-# Merge with language preset
-preset = load_preset(podcast_yaml['podcast']['language'])
-
-# Final configuration
-final_config = merge_configs(config, podcast_yaml, preset)
+# One call performs all four layers:
+#   defaults < presets/{language}.yaml < podcast.yaml < environment/.env
+config = get_config()
+config.transcription_model   # e.g. 'ivrit-ai/whisper-large-v3-turbo' under language: he
 ```
+
+Internally (`config.py`):
+
+```python
+config     = Config()                       # environment + .env + defaults
+language   = resolve_language(podcast_yaml, env_language)
+overrides  = project(load_preset(language)) # skipped when no preset ships
+overrides |= project(load_podcast_yaml())   # podcast.yaml beats the preset
+# fields the environment set are never overwritten
+```
+
+Only the keys `Config` models are merged; the rest of `podcast.yaml`
+(`speakers`, `branding`, `scoring`, `triggers`) is read directly by `cli.py` and
+`triggers/rss_watcher.py` through `load_podcast_yaml()`. See
+[CONFIGURATION.md](CONFIGURATION.md#configuration-precedence) for the full key map.
 
 ## CLI Architecture
 

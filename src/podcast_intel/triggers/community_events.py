@@ -23,9 +23,9 @@ Example:
 import json
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +57,14 @@ class CommunityEvent:
     event_id: str
     event_type: str
     status: str
-    teams: List[str] = field(default_factory=list)
-    score: Optional[str] = None
+    teams: list[str] = field(default_factory=list)
+    score: str | None = None
     date: str = ""
     competition: str = ""
     summary: str = ""
-    raw_data: Dict[str, Any] = field(default_factory=dict)
+    raw_data: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
 
@@ -87,12 +87,12 @@ class EventCheckResult:
     """
 
     has_events: bool = False
-    events: List[CommunityEvent] = field(default_factory=list)
+    events: list[CommunityEvent] = field(default_factory=list)
     provider_name: str = ""
     checked_at: str = ""
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "has_events": self.has_events,
@@ -133,7 +133,7 @@ class CommunityEventProvider(ABC):
     """
 
     @abstractmethod
-    def fetch_recent_events(self) -> List[CommunityEvent]:
+    def fetch_recent_events(self) -> list[CommunityEvent]:
         """
         Fetch events that have already occurred within the lookback window.
 
@@ -142,7 +142,7 @@ class CommunityEventProvider(ABC):
         """
 
     @abstractmethod
-    def fetch_upcoming_events(self) -> List[CommunityEvent]:
+    def fetch_upcoming_events(self) -> list[CommunityEvent]:
         """
         Fetch events scheduled within the lookahead window.
 
@@ -168,7 +168,7 @@ class CommunityEventProvider(ABC):
 # ---------------------------------------------------------------------------
 
 def check_community_events(
-    config: Dict[str, Any],
+    config: dict[str, Any],
 ) -> EventCheckResult:
     """
     Check for community events using the configured provider.
@@ -250,7 +250,7 @@ def check_community_events(
 
 
 def check_recent_events(
-    config: Dict[str, Any],
+    config: dict[str, Any],
 ) -> EventCheckResult:
     """
     Check for recent (past) events only.
@@ -290,7 +290,7 @@ def check_recent_events(
 
 
 def check_upcoming_events(
-    config: Dict[str, Any],
+    config: dict[str, Any],
 ) -> EventCheckResult:
     """
     Check for upcoming (future) events only.

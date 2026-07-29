@@ -7,10 +7,10 @@ type hints for database records and API responses.
 """
 
 from datetime import datetime
-from typing import Optional, List, Dict, Any
 from enum import Enum
+from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 
 class EpisodeType(str, Enum):
@@ -51,20 +51,20 @@ class Episode(BaseModel):
     Represents a podcast episode with metadata from RSS feed
     and processing status.
     """
-    id: Optional[int] = None
+    id: int | None = None
     guid: str
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     pub_date: datetime
     audio_url: str
-    audio_path: Optional[str] = None
-    duration_seconds: Optional[int] = None
-    file_size_bytes: Optional[int] = None
+    audio_path: str | None = None
+    duration_seconds: int | None = None
+    file_size_bytes: int | None = None
     episode_type: EpisodeType = EpisodeType.FULL
     transcription_status: TranscriptionStatus = TranscriptionStatus.PENDING
-    pqs_score: Optional[float] = Field(None, ge=0.0, le=100.0)
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    pqs_score: float | None = Field(None, ge=0.0, le=100.0)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     class Config:
         """Pydantic configuration."""
@@ -77,12 +77,12 @@ class Speaker(BaseModel):
 
     Represents an identified speaker across episodes.
     """
-    id: Optional[int] = None
+    id: int | None = None
     name: str
-    name_localized: Optional[str] = None
-    voice_embedding: Optional[bytes] = None
+    name_localized: str | None = None
+    voice_embedding: bytes | None = None
     is_host: bool = False
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     class Config:
         """Pydantic configuration."""
@@ -96,21 +96,21 @@ class Segment(BaseModel):
     Represents a single diarized segment with speaker attribution,
     timestamps, and transcript text.
     """
-    id: Optional[int] = None
+    id: int | None = None
     episode_id: int
-    speaker_id: Optional[int] = None
+    speaker_id: int | None = None
     start_time: float = Field(ge=0.0)
     end_time: float = Field(gt=0.0)
     text: str
     word_count: int = Field(ge=0, default=0)
     language: Language = Language.ENGLISH
-    sentiment_score: Optional[float] = Field(None, ge=-1.0, le=1.0)
-    confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
-    created_at: Optional[datetime] = None
+    sentiment_score: float | None = Field(None, ge=-1.0, le=1.0)
+    confidence: float | None = Field(None, ge=0.0, le=1.0)
+    created_at: datetime | None = None
 
     @field_validator("end_time")
     @classmethod
-    def validate_time_range(cls, v: float, info) -> float:
+    def validate_time_range(cls, v: float, info: ValidationInfo) -> float:
         """Validate end_time > start_time."""
         if "start_time" in info.data and v <= info.data["start_time"]:
             raise ValueError("end_time must be greater than start_time")
@@ -128,13 +128,13 @@ class Entity(BaseModel):
     Represents a canonical entity (person, organization, etc.) with
     optional multilingual names and external identifiers.
     """
-    id: Optional[int] = None
+    id: int | None = None
     canonical_name: str
-    name_localized: Optional[str] = None
+    name_localized: str | None = None
     entity_type: EntityType
-    external_id: Optional[str] = None
-    metadata_json: Optional[Dict[str, Any]] = None
-    created_at: Optional[datetime] = None
+    external_id: str | None = None
+    metadata_json: dict[str, Any] | None = None
+    created_at: datetime | None = None
 
     class Config:
         """Pydantic configuration."""
@@ -147,14 +147,14 @@ class EntityMention(BaseModel):
 
     Links an entity to a specific segment with context.
     """
-    id: Optional[int] = None
+    id: int | None = None
     entity_id: int
     segment_id: int
     episode_id: int
     mention_text: str
-    start_offset: Optional[int] = None
+    start_offset: int | None = None
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     class Config:
         """Pydantic configuration."""
@@ -167,13 +167,13 @@ class Metric(BaseModel):
 
     Stores analysis results like WPM, talk-time, filler rates, etc.
     """
-    id: Optional[int] = None
+    id: int | None = None
     episode_id: int
-    speaker_id: Optional[int] = None
+    speaker_id: int | None = None
     metric_name: str
     metric_value: float
-    metric_unit: Optional[str] = None
-    computed_at: Optional[datetime] = None
+    metric_unit: str | None = None
+    computed_at: datetime | None = None
 
     class Config:
         """Pydantic configuration."""
@@ -186,15 +186,15 @@ class SilenceEvent(BaseModel):
 
     Represents gaps in speech for pacing analysis.
     """
-    id: Optional[int] = None
+    id: int | None = None
     episode_id: int
     start_time: float = Field(ge=0.0)
     end_time: float = Field(gt=0.0)
     duration: float = Field(gt=0.0)
     event_type: str = "dead_air"
-    preceding_speaker_id: Optional[int] = None
-    following_speaker_id: Optional[int] = None
-    created_at: Optional[datetime] = None
+    preceding_speaker_id: int | None = None
+    following_speaker_id: int | None = None
+    created_at: datetime | None = None
 
     class Config:
         """Pydantic configuration."""
@@ -207,14 +207,14 @@ class CoachingNote(BaseModel):
 
     Contains strengths, improvement areas, and trend observations.
     """
-    id: Optional[int] = None
+    id: int | None = None
     episode_id: int
     speaker_id: int
-    strengths: List[str]
-    improvements: List[str]
-    trends: Optional[Dict[str, Any]] = None
+    strengths: list[str]
+    improvements: list[str]
+    trends: dict[str, Any] | None = None
     generated_by: str = "gpt-4o-mini"
-    generated_at: Optional[datetime] = None
+    generated_at: datetime | None = None
 
     class Config:
         """Pydantic configuration."""

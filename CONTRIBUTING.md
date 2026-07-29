@@ -11,7 +11,6 @@ Thank you for your interest in contributing to podcast-intel! This document prov
 - [Code Style](#code-style)
 - [Pull Request Process](#pull-request-process)
 - [Adding Language Presets](#adding-language-presets)
-- [Creating Specializations](#creating-specializations)
 - [Release Process](#release-process)
 
 ## Code of Conduct
@@ -131,8 +130,12 @@ podcast-intel/
 ├── tests/                      # Test suite
 │   ├── conftest.py             # Pytest fixtures
 │   ├── test_community_events.py
+│   ├── test_downloader.py
+│   ├── test_fixtures.py        # conftest fixtures are real, not placeholders
 │   ├── test_football_provider.py
+│   ├── test_lazy_imports.py    # Core install must not import optional extras
 │   ├── test_mock_system.py     # Integration tests
+│   ├── test_presets.py         # Preset loader + config precedence
 │   ├── test_rss_watcher.py
 │   └── test_scorer.py
 ├── examples/                   # Example configurations
@@ -180,14 +183,16 @@ Example test:
 
 ```python
 def test_filler_detection():
-    from podcast_intel.analysis.filler_detector import FillerDetector
+    from podcast_intel.analysis.filler_detector import (
+        detect_fillers_in_text,
+        get_default_fillers,
+    )
 
-    detector = FillerDetector(language="en")
     text = "Um, like, I think, you know, it's basically great."
+    fillers = detect_fillers_in_text(text, get_default_fillers("en"))
 
-    fillers = detector.detect(text)
     assert len(fillers) > 0
-    assert any(f.word == "um" for f in fillers)
+    assert any(f["word"] == "um" for f in fillers)
 ```
 
 ## Code Style
@@ -301,6 +306,12 @@ def compute_pqs_score(
 ## Adding Language Presets
 
 Language presets configure NLP models and filler words for different languages.
+They are the per-**language** default layer; `podcast.yaml` is the per-**show**
+layer and overrides them. `get_config()` merges
+`defaults < preset < podcast.yaml < environment` -- see
+[docs/CONFIGURATION.md](docs/CONFIGURATION.md#configuration-precedence).
+
+Two presets ship today: `en` (`english.yaml`) and `he` (`hebrew.yaml`).
 
 ### Create a New Preset
 
@@ -335,6 +346,10 @@ AVAILABLE_PRESETS = {
 }
 ```
 
+   `AVAILABLE_PRESETS` is what `load_preset()` and `has_preset()` consult, and
+   `tests/test_presets.py::test_every_declared_preset_actually_loads` fails if a
+   declared preset has no file.
+
 3. Add tests in `tests/test_presets.py`:
 
 ```python
@@ -342,9 +357,14 @@ def test_spanish_preset():
     preset = load_preset("es")
     assert preset["language"] == "es"
     assert "eh" in preset["filler_words"]
+
+
+def test_spanish_resolves_through_get_config(tmp_path):
+    project = write_podcast_yaml(tmp_path, 'podcast:\n  language: "es"\n')
+    assert get_config(search_dir=project).sentiment_model.startswith("finiteautomata/")
 ```
 
-4. Update documentation in `docs/CONFIGURATION.md`
+4. Update documentation in `docs/CONFIGURATION.md` (the Available Presets table)
 
 ### Guidelines for Language Presets
 
@@ -352,66 +372,8 @@ def test_spanish_preset():
 - Include 10-20 common filler words
 - Test transcription quality on sample audio
 - Document any special requirements (e.g., RTL text)
-
-## Creating Specializations
-
-Specializations are domain-specific configurations for podcasts (e.g., sports, tech, finance).
-
-### Example: Sports Podcast Specialization
-
-```
-examples/sports-podcast/
-├── podcast.yaml           # Base config
-├── speakers.yaml          # Speaker profiles
-├── entities.yaml          # Sports-specific entities
-└── scoring_weights.yaml   # Custom PQS weights
-```
-
-**speakers.yaml:**
-```yaml
-speakers:
-  - id: host
-    name: "John Smith"
-    role: host
-    expertise: ["soccer", "basketball"]
-
-  - id: analyst
-    name: "Maria Garcia"
-    role: analyst
-    expertise: ["statistics", "tactics"]
-```
-
-**entities.yaml:**
-```yaml
-entity_categories:
-  teams:
-    - "Manchester United"
-    - "Real Madrid"
-    - "Barcelona"
-
-  players:
-    - "Lionel Messi"
-    - "Cristiano Ronaldo"
-
-  leagues:
-    - "Premier League"
-    - "La Liga"
-```
-
-**scoring_weights.yaml:**
-```yaml
-# Custom PQS weights for sports podcasts
-domain_weights:
-  audio: 0.10
-  delivery: 0.20
-  structure: 0.20
-  content: 0.30      # Higher weight on content for sports analysis
-  engagement: 0.20
-```
-
-### Testing Specializations
-
-Create example podcasts in `examples/` and ensure they work end-to-end.
+- The YAML ships via `[tool.setuptools.package-data]` in `pyproject.toml`; it is
+  read with `importlib.resources`, so never open it by filesystem path
 
 ## Release Process
 
@@ -431,6 +393,7 @@ Maintainers follow this process for releases:
 
 - Open an issue for bugs or feature requests
 - Start a discussion for questions or ideas
-- Join our community chat (link TBD)
+
+There is no community chat.
 
 Thank you for contributing to podcast-intel!

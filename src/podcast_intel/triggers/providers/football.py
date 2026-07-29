@@ -27,7 +27,7 @@ Example:
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import requests
 
@@ -70,7 +70,7 @@ class FootballProvider(CommunityEventProvider):
         lookahead_days: Number of days to look ahead for fixtures
     """
 
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         """
         Initialize the football provider from config dict.
 
@@ -78,7 +78,7 @@ class FootballProvider(CommunityEventProvider):
             config: Provider configuration from podcast.yaml provider_config
         """
         self.team_id: int = config.get("team_id", 73)
-        self.competition_ids: List[int] = config.get("competition_ids", [])
+        self.competition_ids: list[int] = config.get("competition_ids", [])
         self.lookback_days: int = config.get("lookback_days", DEFAULT_LOOKBACK_DAYS)
         self.lookahead_days: int = config.get("lookahead_days", DEFAULT_LOOKAHEAD_DAYS)
 
@@ -99,7 +99,7 @@ class FootballProvider(CommunityEventProvider):
     #  CommunityEventProvider interface
     # -------------------------------------------------------------------
 
-    def fetch_recent_events(self) -> List[CommunityEvent]:
+    def fetch_recent_events(self) -> list[CommunityEvent]:
         """
         Fetch recently completed matches for the configured team.
 
@@ -116,7 +116,7 @@ class FootballProvider(CommunityEventProvider):
             status_filter="FINISHED",
         )
 
-    def fetch_upcoming_events(self) -> List[CommunityEvent]:
+    def fetch_upcoming_events(self) -> list[CommunityEvent]:
         """
         Fetch upcoming scheduled matches for the configured team.
 
@@ -160,7 +160,7 @@ class FootballProvider(CommunityEventProvider):
         date_from: datetime,
         date_to: datetime,
         status_filter: str = "",
-    ) -> List[CommunityEvent]:
+    ) -> list[CommunityEvent]:
         """
         Fetch matches from the football-data.org API.
 
@@ -179,7 +179,7 @@ class FootballProvider(CommunityEventProvider):
             return []
 
         url = f"{API_BASE_URL}/teams/{self.team_id}/matches"
-        params: Dict[str, str] = {
+        params: dict[str, str] = {
             "dateFrom": date_from.strftime("%Y-%m-%d"),
             "dateTo": date_to.strftime("%Y-%m-%d"),
         }
@@ -250,7 +250,7 @@ class FootballProvider(CommunityEventProvider):
 #  Response parsing helpers
 # ---------------------------------------------------------------------------
 
-def _parse_match(match_data: Dict[str, Any]) -> Optional[CommunityEvent]:
+def _parse_match(match_data: dict[str, Any]) -> CommunityEvent | None:
     """
     Parse a single match object from the football-data.org API response.
 
@@ -315,7 +315,7 @@ def _parse_match(match_data: Dict[str, Any]) -> Optional[CommunityEvent]:
     )
 
 
-def _extract_score(match_data: Dict[str, Any]) -> Optional[str]:
+def _extract_score(match_data: dict[str, Any]) -> str | None:
     """
     Extract the match score from the API response.
 

@@ -117,24 +117,21 @@ podcast-intel ships with language presets that configure the right NLP models:
 | English (default) | whisper-large-v3-turbo | bert-base-NER | roberta-sentiment |
 | Hebrew | ivrit-ai/whisper-large-v3-turbo | DictaBERT-NER | heBERT |
 
-To use a preset:
+To use a preset, set the language in `podcast.yaml` -- nothing else is required:
 
 ```yaml
 podcast:
-  language: "he"  # Uses Hebrew preset automatically
+  language: "he"  # get_config() resolves the Hebrew models and filler lexicon
 ```
 
-### Advanced: Specialization System
+`get_config()` layers `defaults < preset < podcast.yaml < environment`; a language
+with no shipped preset falls back to the defaults rather than erroring. Only `en`
+and `he` ship today -- see
+[CONTRIBUTING.md](CONTRIBUTING.md#adding-language-presets) to add one.
 
-For advanced users, podcast-intel supports specialization configs for domain-specific customization:
-
-```
-my-podcast/
-├── podcast.yaml         # Core config
-├── speakers.yaml        # Detailed speaker profiles
-├── entities.yaml        # Domain-specific entities (e.g., sports teams, tech companies)
-└── scoring_weights.yaml # Custom PQS weights
-```
+`podcast.yaml` is the one user-facing configuration file. There is no
+`speakers.yaml` / `entities.yaml` / `scoring_weights.yaml` mechanism -- no packaged
+code reads those filenames.
 
 See [examples/](examples/) for sample configurations.
 

@@ -9,14 +9,14 @@ Computes core metrics including:
 - Word count statistics
 """
 
-from typing import List, Dict, Any, Optional
 from collections import defaultdict
+from typing import Any
 
 
 def compute_episode_metrics(
-    segments: List[Dict[str, Any]],
+    segments: list[dict[str, Any]],
     episode_duration: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute all episode-level metrics from transcript segments.
 
     Args:
@@ -61,7 +61,7 @@ def compute_episode_metrics(
     balance = compute_talk_time_balance(talk_times)
 
     # Talk-time percentages.
-    talk_pct: Dict[str, float] = {}
+    talk_pct: dict[str, float] = {}
     if total_talk > 0:
         for speaker, secs in talk_times.items():
             talk_pct[speaker] = (secs / total_talk) * 100.0
@@ -82,7 +82,7 @@ def compute_episode_metrics(
     }
 
 
-def compute_talk_time(segments: List[Dict[str, Any]]) -> Dict[str, float]:
+def compute_talk_time(segments: list[dict[str, Any]]) -> dict[str, float]:
     """Compute total talk time per speaker in seconds.
 
     Args:
@@ -95,7 +95,7 @@ def compute_talk_time(segments: List[Dict[str, Any]]) -> Dict[str, float]:
         >>> talk_time = compute_talk_time(segments)
         >>> print(talk_time["Host"])
     """
-    times: Dict[str, float] = defaultdict(float)
+    times: dict[str, float] = defaultdict(float)
     for seg in segments:
         speaker = seg.get("speaker", "unknown")
         start = seg.get("start", 0.0)
@@ -105,7 +105,7 @@ def compute_talk_time(segments: List[Dict[str, Any]]) -> Dict[str, float]:
     return dict(times)
 
 
-def compute_speaking_pace(segments: List[Dict[str, Any]]) -> Dict[str, float]:
+def compute_speaking_pace(segments: list[dict[str, Any]]) -> dict[str, float]:
     """Compute average words per minute (WPM) per speaker.
 
     For each segment the WPM is calculated as
@@ -122,8 +122,8 @@ def compute_speaking_pace(segments: List[Dict[str, Any]]) -> Dict[str, float]:
         >>> wpm = compute_speaking_pace(segments)
         >>> print(wpm["Host"])
     """
-    speaker_words: Dict[str, int] = defaultdict(int)
-    speaker_duration: Dict[str, float] = defaultdict(float)
+    speaker_words: dict[str, int] = defaultdict(int)
+    speaker_duration: dict[str, float] = defaultdict(float)
 
     for seg in segments:
         speaker = seg.get("speaker", "unknown")
@@ -136,7 +136,7 @@ def compute_speaking_pace(segments: List[Dict[str, Any]]) -> Dict[str, float]:
         speaker_words[speaker] += words
         speaker_duration[speaker] += duration
 
-    pace: Dict[str, float] = {}
+    pace: dict[str, float] = {}
     for speaker in speaker_words:
         dur = speaker_duration[speaker]
         if dur > 0:
@@ -147,7 +147,7 @@ def compute_speaking_pace(segments: List[Dict[str, Any]]) -> Dict[str, float]:
     return pace
 
 
-def compute_talk_time_balance(talk_times: Dict[str, float]) -> float:
+def compute_talk_time_balance(talk_times: dict[str, float]) -> float:
     """Compute Gini coefficient of talk-time distribution.
 
     A value of 0 indicates perfectly equal talk time across speakers;
@@ -180,7 +180,7 @@ def compute_talk_time_balance(talk_times: Dict[str, float]) -> float:
     return max(0.0, min(1.0, gini))
 
 
-def compute_word_counts(segments: List[Dict[str, Any]]) -> Dict[str, int]:
+def compute_word_counts(segments: list[dict[str, Any]]) -> dict[str, int]:
     """Compute total word count per speaker.
 
     Args:
@@ -189,7 +189,7 @@ def compute_word_counts(segments: List[Dict[str, Any]]) -> Dict[str, int]:
     Returns:
         Dictionary mapping speaker name to word count.
     """
-    counts: Dict[str, int] = defaultdict(int)
+    counts: dict[str, int] = defaultdict(int)
     for seg in segments:
         speaker = seg.get("speaker", "unknown")
         text = seg.get("text", "")

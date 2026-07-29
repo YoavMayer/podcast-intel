@@ -13,23 +13,22 @@ Example:
     >>> events = provider.fetch_recent_events()
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from podcast_intel.triggers.community_events import CommunityEventProvider
-
 
 # ---------------------------------------------------------------------------
 #  Provider registry
 # ---------------------------------------------------------------------------
 
-_PROVIDER_REGISTRY: Dict[str, str] = {
+_PROVIDER_REGISTRY: dict[str, str] = {
     "football": "podcast_intel.triggers.providers.football.FootballProvider",
 }
 
 
 def get_provider(
     name: str,
-    config: Dict[str, Any],
+    config: dict[str, Any],
 ) -> CommunityEventProvider:
     """
     Get an instantiated provider by name.
@@ -69,10 +68,11 @@ def get_provider(
     module = importlib.import_module(module_path)
     provider_class = getattr(module, class_name)
 
-    return provider_class(config)
+    provider: CommunityEventProvider = provider_class(config)
+    return provider
 
 
-def list_providers() -> Dict[str, str]:
+def list_providers() -> dict[str, str]:
     """
     List all registered provider names and their class paths.
 

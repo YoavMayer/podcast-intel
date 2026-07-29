@@ -6,13 +6,14 @@ title, description, publication date, audio URL, and duration.
 Supports incremental sync via GUID tracking to avoid redundant downloads.
 """
 
-from typing import List, Dict, Any, Optional
 from datetime import datetime
+from typing import Any
+
 import feedparser
 from dateutil import parser as date_parser
 
 
-def parse_rss_feed(url: str) -> List[Dict[str, Any]]:
+def parse_rss_feed(url: str) -> list[dict[str, Any]]:
     """
     Parse RSS feed and extract episode metadata.
 
@@ -100,7 +101,7 @@ def parse_duration(duration_str: str) -> int:
         return 0
 
 
-def extract_episode_metadata(entry: Any) -> Optional[Dict[str, Any]]:
+def extract_episode_metadata(entry: Any) -> dict[str, Any] | None:
     """
     Extract structured metadata from a feed entry.
 
@@ -211,7 +212,7 @@ def extract_episode_metadata(entry: Any) -> Optional[Dict[str, Any]]:
         return None
 
 
-def get_new_episodes(feed_entries: List[Any], existing_guids: set) -> List[Dict[str, Any]]:
+def get_new_episodes(feed_entries: list[Any], existing_guids: set) -> list[dict[str, Any]]:
     """
     Filter feed entries to only new episodes not in database.
 
@@ -241,7 +242,7 @@ def get_new_episodes(feed_entries: List[Any], existing_guids: set) -> List[Dict[
     return new_episodes
 
 
-def parse_feed(rss_url: str) -> List[Dict[str, Any]]:
+def parse_feed(rss_url: str) -> list[dict[str, Any]]:
     """
     Parse RSS feed and extract episode metadata.
 
@@ -260,7 +261,7 @@ def parse_feed(rss_url: str) -> List[Dict[str, Any]]:
     return parse_rss_feed(rss_url)
 
 
-def main():
+def main() -> None:
     """
     Main entry point for RSS parser testing.
 

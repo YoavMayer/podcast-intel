@@ -7,7 +7,7 @@ pluggable backends (Whisper, cloud APIs, mocks) with consistent API.
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 
 class TranscriptionResult:
@@ -23,10 +23,10 @@ class TranscriptionResult:
 
     def __init__(
         self,
-        segments: List[Dict[str, Any]],
+        segments: list[dict[str, Any]],
         language: str = "en",
         duration: float = 0.0,
-        diarization: Optional[List[Dict[str, Any]]] = None
+        diarization: list[dict[str, Any]] | None = None
     ):
         self.segments = segments
         self.language = language
@@ -63,7 +63,7 @@ class TranscriptionInterface(ABC):
         pass
 
     @abstractmethod
-    def get_word_timestamps(self, audio_path: Path) -> List[Dict[str, Any]]:
+    def get_word_timestamps(self, audio_path: Path) -> list[dict[str, Any]]:
         """
         Get word-level timestamps for audio file.
 

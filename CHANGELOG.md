@@ -5,6 +5,73 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Language presets are now a working mechanism, not a promise.**
+  `podcast_intel.presets` ships `AVAILABLE_PRESETS`, `load_preset(code)` and
+  `has_preset(code)`; presets are read out of the installed package with
+  `importlib.resources`, so they work from a wheel.
+- **`get_config()` performs the four-layer merge the docs already described:**
+  `defaults < language preset < podcast.yaml < environment/.env`. Setting
+  `podcast.language: "he"` now actually resolves `ivrit-ai/whisper-large-v3-turbo`,
+  `dicta-il/dictabert-ner`, `avichr/heBERT_sentiment_analysis` and the Hebrew
+  filler lexicon. A language with no shipped preset falls back to the defaults
+  rather than raising.
+- `Config.filler_words`, resolved from the active language preset.
+- `[tool.setuptools.package-data]` for `presets/*.yaml` -- before this the preset
+  YAMLs were in **no** built wheel or sdist.
+- `ingestion/downloader.py` implemented (streaming download to a `.part`
+  sidecar, MP3 header validation, `HEAD`-based size lookup). It was three
+  placeholder bodies returning `None` against `-> bool` signatures while
+  `ingestion/__init__.py` exported `download_episode`.
+- New tests: `tests/test_presets.py` (preset API, four-layer precedence,
+  he-vs-en acceptance), `tests/test_lazy_imports.py` (no `__init__` may import an
+  optional extra), `tests/test_downloader.py`, `tests/test_fixtures.py`.
+- All six `tests/conftest.py` fixtures implemented. They were placeholder bodies
+  returning `None` against declared return types, while CONTRIBUTING.md told
+  contributors to "use fixtures from `tests/conftest.py`".
+
+### Fixed
+
+- **`import podcast_intel.transcription` no longer fails on a core install.**
+  `transcription/__init__.py` imported `whisper_transcriber` -- and therefore
+  `faster_whisper`, a `[transcription]`-extra dependency -- at module level.
+  `WhisperTranscriber` is now resolved lazily via PEP 562 `__getattr__`. This is
+  also what made `tests/test_mock_system.py` uncollectable.
+- **`load_podcast_yaml()` searched the installed package directory, not the
+  user's project.** It now searches the current working directory first
+  (`PROJECT_ROOT` remains a last-resort fallback), which is what the
+  documentation always claimed.
+- `tools/analyze_panel_chemistry.py` called `sys.exit()` without importing `sys`
+  (`NameError` on the "no episodes found" path).
+- `examples/quickstart/podcast.yaml` was matched by `.gitignore`'s bare
+  `podcast.yaml` rule and was absent from the published repo, although README,
+  CONTRIBUTING and `examples/README.md` all point at it.
+
+### Changed
+
+- CI is green again: the `[tool.ruff]` config moved to the post-0.2
+  `[tool.ruff.lint]` layout, all 431 ruff findings in `src/`+`tests/` are fixed
+  (annotations modernised to PEP 585/604, dead locals removed), and `mypy
+  --strict`-style `disallow_untyped_defs` passes with 0 errors.
+- Documentation honesty pass: removed the "Specialization System"
+  (`speakers.yaml` / `entities.yaml` / `scoring_weights.yaml`) sections from
+  README, CONTRIBUTING, `docs/CONFIGURATION.md` and `examples/README.md` -- no
+  packaged code reads those filenames; removed the Spanish preset from the
+  "Available Presets" table (it does not ship); replaced the `ValidationError`
+  section documenting validators that do not exist with a statement of what is
+  and is not validated; replaced `docs/ARCHITECTURE.md`'s call to the
+  nonexistent `merge_configs()`; corrected the `FillerDetector` class example in
+  CONTRIBUTING (the module exposes functions, not a class); removed
+  `podcast-intel init` / `podcast-intel analyze` from `examples/README.md`
+  (neither is a CLI verb).
+- `tests/test_mock_system.py::test_language_check_constraint` asserted a
+  `he`/`en`/`mixed` allowlist that the schema deliberately dropped in 0.2.0; it
+  now asserts the real length-based constraint, in line with a framework that
+  serves many podcasts in many languages.
+
 ## [0.2.0] - 2026-02-18
 
 ### Added
