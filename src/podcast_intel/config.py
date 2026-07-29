@@ -10,6 +10,10 @@ environment variable support.
 2. The language preset for ``podcast.language`` (``presets/{lang}.yaml``)
 3. ``podcast.yaml`` in the current directory or a parent
 4. Environment variables (``PODCAST_INTEL_*``) and ``.env``
+
+Layer 1 is itself read from the :data:`~podcast_intel.presets.DEFAULT_LANGUAGE`
+preset, so the Hebrew-first defaults are declared exactly once -- in
+``presets/hebrew.yaml`` -- rather than copied into this module.
 """
 
 from pathlib import Path
@@ -19,7 +23,12 @@ import yaml
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from podcast_intel.presets import has_preset, load_preset
+from podcast_intel.presets import (
+    DEFAULT_LANGUAGE,
+    has_preset,
+    load_preset,
+    preset_value,
+)
 
 # Project root directory
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -58,6 +67,31 @@ def load_podcast_yaml(search_dir: Path | None = None) -> dict:
     return {}
 
 
+def _preset_default(dotted: str) -> str:
+    """
+    Read a built-in default out of the :data:`DEFAULT_LANGUAGE` preset.
+
+    Args:
+        dotted: Dotted key into the preset, e.g. ``"models.ner"``.
+
+    Returns:
+        The preset's value for that key.
+
+    Raises:
+        RuntimeError: If the shipped preset does not define it. Failing at
+            import is deliberate: a silent English fallback here is exactly the
+            bug that made the Hebrew preset decorative.
+    """
+    value = preset_value(dotted)
+    if not isinstance(value, str) or not value:
+        raise RuntimeError(
+            f"presets/{DEFAULT_LANGUAGE}.yaml does not define {dotted!r}; "
+            "the shipped preset for the default language supplies the built-in "
+            "defaults, so it must carry every model key."
+        )
+    return value
+
+
 class Config(BaseSettings):
     """
     Application configuration with environment variable support.
@@ -81,8 +115,8 @@ class Config(BaseSettings):
 
     # Podcast identity
     language: str = Field(
-        default="en",
-        description="Podcast language (ISO 639-1 code, e.g. 'en', 'he')"
+        default=DEFAULT_LANGUAGE,
+        description="Podcast language (ISO 639-1 code, e.g. 'he', 'en')"
     )
 
     # RSS Feed
@@ -105,9 +139,11 @@ class Config(BaseSettings):
         description="Directory for vector store embeddings"
     )
 
-    # Transcription settings
+    # Transcription settings.
+    # The default is the DEFAULT_LANGUAGE preset's model, read from the preset
+    # itself -- setting `podcast.language` is what changes it.
     transcription_model: str = Field(
-        default="openai/whisper-large-v3-turbo",
+        default=_preset_default("models.transcription"),
         description="Whisper model to use for transcription"
     )
     transcription_device: str = Field(
@@ -136,17 +172,17 @@ class Config(BaseSettings):
     # NOTE: no packaged code reads the model IDs below -- the NER and sentiment
     # stages are planned, not shipped. Setting them changes nothing today.
     ner_model: str = Field(
-        default="dslim/bert-base-NER",
+        default=_preset_default("models.ner"),
         description="Named Entity Recognition model (reserved; NER is not implemented)"
     )
     sentiment_model: str = Field(
-        default="cardiffnlp/twitter-roberta-base-sentiment-latest",
+        default=_preset_default("models.sentiment"),
         description="Sentiment model (reserved; sentiment analysis is not implemented)"
     )
 
-    # Filler lexicon, normally resolved from the language preset.
-    # Empty means "fall back to the built-in English list in
-    # analysis/filler_detector.py".
+    # Filler lexicon, resolved from the language preset. Empty means "fall back
+    # to analysis.filler_detector.get_default_fillers()", which reads the same
+    # presets -- so an unset value and the default agree by construction.
     filler_words: list[str] = Field(
         default_factory=list,
         description="Filler words for the active language (resolved from the preset)"

@@ -28,22 +28,26 @@
             }
           },
           "content": {
-            "domain_score": 42.94,
+            "domain_score": 44.3,
             "sub_scores": {
               "analytical_depth_ratio": 0.0,
               "content_words_per_minute": 100.0,
               "discussion_density": 100.0,
               "domain_entity_density": 10.0,
+              "match_reference_density": 100.0,
               "opinion_fact_ratio": 10.0,
+              "tactical_depth_density": 10.0,
               "topic_coverage_breadth": 0.0
             },
             "weights": {
-              "analytical_depth_ratio": 0.2574,
-              "content_words_per_minute": 0.2059,
-              "discussion_density": 0.2059,
-              "domain_entity_density": 0.0941,
-              "opinion_fact_ratio": 0.0823,
-              "topic_coverage_breadth": 0.1544
+              "analytical_depth_ratio": 0.21875,
+              "content_words_per_minute": 0.175,
+              "discussion_density": 0.175,
+              "domain_entity_density": 0.08,
+              "match_reference_density": 0.07,
+              "opinion_fact_ratio": 0.07,
+              "tactical_depth_density": 0.08,
+              "topic_coverage_breadth": 0.13125
             }
           },
           "delivery": {
@@ -121,8 +125,8 @@
           }
         },
         "formula": "0.10*Audio + 0.25*Delivery + 0.20*Structure + 0.25*Content + 0.20*Engagement",
-        "pqs_v3": 43.43,
-        "profile_version": "3.1.0"
+        "pqs_v3": 43.77,
+        "profile_version": "3.0.0"
       },
       "inputs": {
         "audio": {
@@ -137,7 +141,9 @@
           "content_words_per_minute": 500.0,
           "discussion_density": 9.9,
           "domain_entity_density": 0.0,
+          "match_reference_density": 50.0,
           "opinion_fact_ratio": 9.9,
+          "tactical_depth_density": 0.0,
           "topic_coverage_breadth": 0.0
         },
         "delivery": {
@@ -202,22 +208,26 @@
             }
           },
           "content": {
-            "domain_score": 95.03,
+            "domain_score": 92.78,
             "sub_scores": {
               "analytical_depth_ratio": 95.0,
               "content_words_per_minute": 100.0,
               "discussion_density": 95.0,
               "domain_entity_density": 80.0,
+              "match_reference_density": 80.0,
               "opinion_fact_ratio": 100.0,
+              "tactical_depth_density": 80.0,
               "topic_coverage_breadth": 95.0
             },
             "weights": {
-              "analytical_depth_ratio": 0.2574,
-              "content_words_per_minute": 0.2059,
-              "discussion_density": 0.2059,
-              "domain_entity_density": 0.0941,
-              "opinion_fact_ratio": 0.0823,
-              "topic_coverage_breadth": 0.1544
+              "analytical_depth_ratio": 0.21875,
+              "content_words_per_minute": 0.175,
+              "discussion_density": 0.175,
+              "domain_entity_density": 0.08,
+              "match_reference_density": 0.07,
+              "opinion_fact_ratio": 0.07,
+              "tactical_depth_density": 0.08,
+              "topic_coverage_breadth": 0.13125
             }
           },
           "delivery": {
@@ -295,8 +305,8 @@
           }
         },
         "formula": "0.10*Audio + 0.25*Delivery + 0.20*Structure + 0.25*Content + 0.20*Engagement",
-        "pqs_v3": 96.34,
-        "profile_version": "3.1.0"
+        "pqs_v3": 95.78,
+        "profile_version": "3.0.0"
       },
       "inputs": {
         "audio": {
@@ -311,7 +321,9 @@
           "content_words_per_minute": 120.0,
           "discussion_density": 2.2,
           "domain_entity_density": 5.0,
+          "match_reference_density": 3.0,
           "opinion_fact_ratio": 1.0,
+          "tactical_depth_density": 2.5,
           "topic_coverage_breadth": 0.9
         },
         "delivery": {
@@ -376,22 +388,26 @@
             }
           },
           "content": {
-            "domain_score": 22.21,
+            "domain_score": 19.68,
             "sub_scores": {
               "analytical_depth_ratio": 27.0,
               "content_words_per_minute": 24.8,
               "discussion_density": 16.67,
               "domain_entity_density": 10.0,
+              "match_reference_density": 0.0,
               "opinion_fact_ratio": 28.0,
+              "tactical_depth_density": 10.0,
               "topic_coverage_breadth": 22.5
             },
             "weights": {
-              "analytical_depth_ratio": 0.2574,
-              "content_words_per_minute": 0.2059,
-              "discussion_density": 0.2059,
-              "domain_entity_density": 0.0941,
-              "opinion_fact_ratio": 0.0823,
-              "topic_coverage_breadth": 0.1544
+              "analytical_depth_ratio": 0.21875,
+              "content_words_per_minute": 0.175,
+              "discussion_density": 0.175,
+              "domain_entity_density": 0.08,
+              "match_reference_density": 0.07,
+              "opinion_fact_ratio": 0.07,
+              "tactical_depth_density": 0.08,
+              "topic_coverage_breadth": 0.13125
             }
           },
           "delivery": {
@@ -469,8 +485,8 @@
           }
         },
         "formula": "0.10*Audio + 0.25*Delivery + 0.20*Structure + 0.25*Content + 0.20*Engagement",
-        "pqs_v3": 26.04,
-        "profile_version": "3.1.0"
+        "pqs_v3": 25.4,
+        "profile_version": "3.0.0"
       },
       "inputs": {
         "audio": {
@@ -485,7 +501,9 @@
           "content_words_per_minute": 92.0,
           "discussion_density": 1.45,
           "domain_entity_density": 1.2,
+          "match_reference_density": 0.4,
           "opinion_fact_ratio": 2.4,
+          "tactical_depth_density": 0.3,
           "topic_coverage_breadth": 0.55
         },
         "delivery": {
@@ -524,5 +542,5 @@
     }
   },
   "note": "Frozen output of compute_pqs() for the profile named above. Regenerate with scripts/freeze_pqs_golden.py ONLY alongside an intended PROFILE_VERSION bump. Inputs are synthetic.",
-  "profile_version": "3.1.0"
+  "profile_version": "3.0.0"
 }

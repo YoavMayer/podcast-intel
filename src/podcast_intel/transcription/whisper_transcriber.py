@@ -18,6 +18,7 @@ from faster_whisper import WhisperModel
 
 from podcast_intel.config import get_config
 from podcast_intel.models.database import Database
+from podcast_intel.presets import DEFAULT_LANGUAGE
 from podcast_intel.transcription.transcribe import (
     TranscriptionInterface,
     TranscriptionResult,
@@ -74,7 +75,7 @@ class WhisperTranscriber(TranscriptionInterface):
     def transcribe(
         self,
         audio_path: Path,
-        language: str = "en",
+        language: str = DEFAULT_LANGUAGE,
         diarize: bool = True,
     ) -> TranscriptionResult:
         model = self._get_model()

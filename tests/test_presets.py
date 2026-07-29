@@ -15,7 +15,13 @@ from typing import Any
 import pytest
 
 from podcast_intel.config import Config, get_config, load_podcast_yaml, resolve_language
-from podcast_intel.presets import AVAILABLE_PRESETS, has_preset, load_preset
+from podcast_intel.presets import (
+    AVAILABLE_PRESETS,
+    DEFAULT_LANGUAGE,
+    has_preset,
+    load_preset,
+    preset_value,
+)
 
 HEBREW_TRANSCRIPTION = "ivrit-ai/whisper-large-v3-turbo"
 ENGLISH_TRANSCRIPTION = "openai/whisper-large-v3-turbo"
@@ -95,6 +101,52 @@ class TestPresetApi:
 # ---------------------------------------------------------------------------
 #  get_config() layering
 # ---------------------------------------------------------------------------
+
+
+class TestHebrewFirstDefaults:
+    """The built-in defaults ARE the default-language preset, not a copy of it."""
+
+    def test_default_language_is_hebrew(self):
+        assert DEFAULT_LANGUAGE == "he"
+        assert DEFAULT_LANGUAGE in AVAILABLE_PRESETS
+        assert Config.model_fields["language"].default == DEFAULT_LANGUAGE
+
+    @pytest.mark.parametrize(
+        "field_name,preset_key",
+        [
+            ("transcription_model", "models.transcription"),
+            ("ner_model", "models.ner"),
+            ("sentiment_model", "models.sentiment"),
+        ],
+    )
+    def test_model_defaults_come_from_the_default_preset(
+        self, field_name: str, preset_key: str
+    ):
+        assert Config.model_fields[field_name].default == preset_value(preset_key)
+
+    def test_bare_config_is_already_the_hebrew_stack(self):
+        """Config() with no podcast.yaml and no env still resolves Hebrew."""
+        config = Config()
+        assert config.language == "he"
+        assert config.transcription_model == HEBREW_TRANSCRIPTION
+        assert config.transcription_model != ENGLISH_TRANSCRIPTION
+
+    def test_config_module_hardcodes_no_english_model_id(self):
+        """No English default may survive in the code as a second source of truth.
+
+        The Hebrew IDs are allowed to appear in a docstring example; an English
+        one appearing at all would mean a hardcoded default was left behind.
+        """
+        import podcast_intel.config as config_module
+
+        source = Path(config_module.__file__).read_text(encoding="utf-8")
+        for model_id in load_preset("en")["models"].values():
+            assert model_id not in source, model_id
+
+    def test_preset_value_reads_the_default_language(self):
+        assert preset_value("models.transcription") == HEBREW_TRANSCRIPTION
+        assert preset_value("models.transcription", "en") == ENGLISH_TRANSCRIPTION
+        assert preset_value("models.nope") is None
 
 
 class TestLanguageResolvesTheStack:
@@ -201,19 +253,25 @@ class TestPrecedence:
         assert config.transcription_model == HEBREW_TRANSCRIPTION
 
     def test_defaults_stand_when_nothing_is_configured(self, tmp_path: Path):
+        """Unconfigured means Hebrew: the charter default, not an English one."""
         empty = tmp_path / "empty" / "nested"
         empty.mkdir(parents=True)
         config = get_config(search_dir=empty)
 
         assert config.language == Config.model_fields["language"].default
-        assert config.transcription_model == ENGLISH_TRANSCRIPTION
+        assert config.language == DEFAULT_LANGUAGE == "he"
+        assert config.transcription_model == HEBREW_TRANSCRIPTION
+        assert config.ner_model == "dicta-il/dictabert-ner"
+        assert config.sentiment_model == "avichr/heBERT_sentiment_analysis"
 
     def test_unknown_language_is_not_an_error_and_keeps_defaults(self, tmp_path: Path):
         project = write_podcast_yaml(tmp_path, 'podcast:\n  language: "es"\n')
         config = get_config(search_dir=project)
 
         assert config.language == "es"
-        assert config.transcription_model == ENGLISH_TRANSCRIPTION
+        # No Spanish preset ships, so layer 2 is skipped and the built-in
+        # defaults -- which are the DEFAULT_LANGUAGE preset's -- stand.
+        assert config.transcription_model == HEBREW_TRANSCRIPTION
         assert config.filler_words == []
 
     def test_rss_url_comes_from_podcast_yaml(self, tmp_path: Path):

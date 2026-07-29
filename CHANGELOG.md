@@ -5,10 +5,114 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-07-29
+
+### Removed
+
+- **BREAKING -- the two sport-specific PQS content sub-metrics.**
+  `match_reference_density` (weight 0.07) and `tactical_depth_density` (0.08)
+  are gone from `CONTENT_WEIGHTS`, from `compute_content_domain()`'s function
+  map and from `docs/PQS_FRAMEWORK.md`, together with
+  `score_match_reference_density()` and `score_tactical_depth_density()`. The
+  remaining six weights are renormalised from 0.85 to 1.0. Content Depth is now
+  6 sub-metrics and PQS v3.1 is 37, not 39.
+
+  **Content and composite scores are not comparable across 0.2.x -> 0.3.0.**
+  Two sport-specific metrics were removed and the remaining six renormalised, so
+  a score computed under 0.2.x and one computed under 0.3.0 measure different
+  things even when the underlying episode is identical. Do not plot them on one
+  trend line; rescore the source data instead.
+
+  `scorer.PROFILE_VERSION` moves `3.0.0` -> `3.1.0` and `compute_pqs()` stamps
+  it into every result, so `check_comparable()` raises on a 3.0.0 artifact
+  rather than reporting the rescale as a regression. Measured effect on the
+  golden cases: strong 95.78 -> 96.34, weak 25.40 -> 26.04, edges 43.77 ->
+  43.43; the `audio`, `delivery`, `structure` and `engagement` blocks are
+  byte-identical. `compute_content_domain()` ignores the two removed keys, so
+  a caller still passing them gets a 3.1.0 score instead of a crash.
+- `analysis.filler_detector.HEBREW_FILLERS` and `DEFAULT_FILLERS`. They were
+  hand-copied mirrors of `presets/hebrew.yaml` and `presets/english.yaml`; the
+  module now reads the presets. `get_default_fillers()` keeps its name and
+  returns the same Hebrew list.
+
+### Changed
+
+- **Defaults are Hebrew-first.** `Config.language` defaults to `"he"`, and the
+  `transcription_model` / `ner_model` / `sentiment_model` defaults are read from
+  `presets/hebrew.yaml` through `presets.DEFAULT_LANGUAGE` rather than being
+  hardcoded a second time -- an unconfigured install resolves
+  `ivrit-ai/whisper-large-v3-turbo`, `dicta-il/dictabert-ner` and
+  `avichr/heBERT_sentiment_analysis`. An English show sets
+  `podcast.language: "en"` and gets the English preset. `transcribe.py` and
+  `whisper_transcriber.py` follow the same default.
+- **Briefings render RTL Hebrew by default** (`briefing_generator`): `direction`
+  `ltr` -> `rtl`, `language` `en` -> `he`, and the font stack now leads with
+  Heebo. `direction` is derived from `podcast.language` unless podcast.yaml
+  states it explicitly, so an English show no longer had to know about a
+  separate key to stop getting RTL markup.
+- `detect_fillers()`, `detect_fillers_in_text()`, `count_fillers_in_text()` and
+  `extract_filler_positions()` take `language` (and `detect_fillers` also
+  `filler_words`). Previously `detect_fillers()` always scanned with the English
+  list, so a Hebrew episode reported zero fillers.
+- PQS golden fixtures: `tests/fixtures/pqs_golden.json` is regenerated at
+  profile 3.1.0 and the superseded one is kept as
+  `tests/fixtures/pqs_golden_3.0.0.json`, so the blast-radius proof survives the
+  regeneration instead of becoming self-referential.
+- CI is green again: the `[tool.ruff]` config moved to the post-0.2
+  `[tool.ruff.lint]` layout, all 431 ruff findings in `src/`+`tests/` are fixed
+  (annotations modernised to PEP 585/604, dead locals removed), and `mypy
+  --strict`-style `disallow_untyped_defs` passes with 0 errors.
+- Documentation honesty pass: removed the "Specialization System"
+  (`speakers.yaml` / `entities.yaml` / `scoring_weights.yaml`) sections from
+  README, CONTRIBUTING, `docs/CONFIGURATION.md` and `examples/README.md` -- no
+  packaged code reads those filenames; removed the Spanish preset from the
+  "Available Presets" table (it does not ship); replaced the `ValidationError`
+  section documenting validators that do not exist with a statement of what is
+  and is not validated; replaced `docs/ARCHITECTURE.md`'s call to the
+  nonexistent `merge_configs()`; corrected the `FillerDetector` class example in
+  CONTRIBUTING (the module exposes functions, not a class); removed
+  `podcast-intel init` / `podcast-intel analyze` from `examples/README.md`
+  (neither is a CLI verb).
+- `tests/test_mock_system.py::test_language_check_constraint` asserted a
+  `he`/`en`/`mixed` allowlist that the schema deliberately dropped in 0.2.0; it
+  now asserts the real length-based constraint, in line with a framework that
+  serves many podcasts in many languages.
+
+### Fixed
+
+- **`build_filler_pattern()` could never match a filler ending in punctuation.**
+  The whole alternation was wrapped in `\b...\b`, and a word boundary cannot
+  hold between `?` and a following space. Measured: `["right?", "um", "so"]`
+  over `"so right? um ok"` returned `['so', 'um']`. Hebrew `"נכון?"`
+  (`presets/hebrew.yaml`) was dead the same way. Boundaries are now applied per
+  filler, only on the ends where they can apply.
+- **`import podcast_intel.transcription` no longer fails on a core install.**
+  `transcription/__init__.py` imported `whisper_transcriber` -- and therefore
+  `faster_whisper`, a `[transcription]`-extra dependency -- at module level.
+  `WhisperTranscriber` is now resolved lazily via PEP 562 `__getattr__`. This is
+  also what made `tests/test_mock_system.py` uncollectable.
+- **`load_podcast_yaml()` searched the installed package directory, not the
+  user's project.** It now searches the current working directory first
+  (`PROJECT_ROOT` remains a last-resort fallback), which is what the
+  documentation always claimed.
+- `tools/analyze_panel_chemistry.py` called `sys.exit()` without importing `sys`
+  (`NameError` on the "no episodes found" path).
+- `examples/quickstart/podcast.yaml` was matched by `.gitignore`'s bare
+  `podcast.yaml` rule and was absent from the published repo, although README,
+  CONTRIBUTING and `examples/README.md` all point at it.
 
 ### Added
 
+- `presets.DEFAULT_LANGUAGE` (`"he"`) and `presets.preset_value()` -- the single
+  place the default language and its defaults are declared.
+- `briefing_generator.text_direction()`, mapping a language code to `rtl`/`ltr`.
+- `tests/test_language_acceptance.py` -- the two-language acceptance test: the
+  mock pipeline is run over `language: en` and `language: he` from a four-key
+  `podcast.yaml`, asserting the resolved transcription model differs, the Hebrew
+  filler lexicon is active and actually detects Hebrew fillers, and the briefing
+  renders `dir="rtl"` for Hebrew and `dir="ltr"` for English.
+- `tests/test_filler_detector.py` -- lexicon-from-preset, the `\b` regression
+  and the boundaries that must still hold.
 - **Language presets are now a working mechanism, not a promise.**
   `podcast_intel.presets` ships `AVAILABLE_PRESETS`, `load_preset(code)` and
   `has_preset(code)`; presets are read out of the installed package with
@@ -32,45 +136,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All six `tests/conftest.py` fixtures implemented. They were placeholder bodies
   returning `None` against declared return types, while CONTRIBUTING.md told
   contributors to "use fixtures from `tests/conftest.py`".
-
-### Fixed
-
-- **`import podcast_intel.transcription` no longer fails on a core install.**
-  `transcription/__init__.py` imported `whisper_transcriber` -- and therefore
-  `faster_whisper`, a `[transcription]`-extra dependency -- at module level.
-  `WhisperTranscriber` is now resolved lazily via PEP 562 `__getattr__`. This is
-  also what made `tests/test_mock_system.py` uncollectable.
-- **`load_podcast_yaml()` searched the installed package directory, not the
-  user's project.** It now searches the current working directory first
-  (`PROJECT_ROOT` remains a last-resort fallback), which is what the
-  documentation always claimed.
-- `tools/analyze_panel_chemistry.py` called `sys.exit()` without importing `sys`
-  (`NameError` on the "no episodes found" path).
-- `examples/quickstart/podcast.yaml` was matched by `.gitignore`'s bare
-  `podcast.yaml` rule and was absent from the published repo, although README,
-  CONTRIBUTING and `examples/README.md` all point at it.
-
-### Changed
-
-- CI is green again: the `[tool.ruff]` config moved to the post-0.2
-  `[tool.ruff.lint]` layout, all 431 ruff findings in `src/`+`tests/` are fixed
-  (annotations modernised to PEP 585/604, dead locals removed), and `mypy
-  --strict`-style `disallow_untyped_defs` passes with 0 errors.
-- Documentation honesty pass: removed the "Specialization System"
-  (`speakers.yaml` / `entities.yaml` / `scoring_weights.yaml`) sections from
-  README, CONTRIBUTING, `docs/CONFIGURATION.md` and `examples/README.md` -- no
-  packaged code reads those filenames; removed the Spanish preset from the
-  "Available Presets" table (it does not ship); replaced the `ValidationError`
-  section documenting validators that do not exist with a statement of what is
-  and is not validated; replaced `docs/ARCHITECTURE.md`'s call to the
-  nonexistent `merge_configs()`; corrected the `FillerDetector` class example in
-  CONTRIBUTING (the module exposes functions, not a class); removed
-  `podcast-intel init` / `podcast-intel analyze` from `examples/README.md`
-  (neither is a CLI verb).
-- `tests/test_mock_system.py::test_language_check_constraint` asserted a
-  `he`/`en`/`mixed` allowlist that the schema deliberately dropped in 0.2.0; it
-  now asserts the real length-based constraint, in line with a framework that
-  serves many podcasts in many languages.
 
 ## [0.2.0] - 2026-02-18
 

@@ -16,6 +16,12 @@ PROFILE_VERSION, so an accidental run cannot launder an unintended change.
 
 The inputs below are synthetic and domain-neutral on purpose. The golden is
 tracked in a public repo, so it must never carry real episode measurements.
+
+Superseded goldens are kept beside the current one as
+``tests/fixtures/pqs_golden_<version>.json``. They are what makes a profile
+boundary auditable after the fact: ``tests/test_pqs_profile_version.py`` diffs
+the current golden against the previous one to prove the change stayed inside
+the domain it claimed.
 """
 
 from __future__ import annotations
@@ -50,8 +56,7 @@ CASES: dict[str, dict[str, dict[str, float]]] = {
         "content": {
             "analytical_depth_ratio": 10.0, "content_words_per_minute": 120.0,
             "topic_coverage_breadth": 0.90, "discussion_density": 2.2,
-            "domain_entity_density": 5.0, "match_reference_density": 3.0,
-            "tactical_depth_density": 2.5, "opinion_fact_ratio": 1.0,
+            "domain_entity_density": 5.0, "opinion_fact_ratio": 1.0,
         },
         "engagement": {
             "conversational_energy": 5.0, "debate_indicator": 4.5,
@@ -80,8 +85,7 @@ CASES: dict[str, dict[str, dict[str, float]]] = {
         "content": {
             "analytical_depth_ratio": 3.5, "content_words_per_minute": 92.0,
             "topic_coverage_breadth": 0.55, "discussion_density": 1.45,
-            "domain_entity_density": 1.2, "match_reference_density": 0.4,
-            "tactical_depth_density": 0.3, "opinion_fact_ratio": 2.4,
+            "domain_entity_density": 1.2, "opinion_fact_ratio": 2.4,
         },
         "engagement": {
             "conversational_energy": 2.5, "debate_indicator": 8.5,
@@ -110,8 +114,7 @@ CASES: dict[str, dict[str, dict[str, float]]] = {
         "content": {
             "analytical_depth_ratio": 0.0, "content_words_per_minute": 500.0,
             "topic_coverage_breadth": 0.0, "discussion_density": 9.9,
-            "domain_entity_density": 0.0, "match_reference_density": 50.0,
-            "tactical_depth_density": 0.0, "opinion_fact_ratio": 9.9,
+            "domain_entity_density": 0.0, "opinion_fact_ratio": 9.9,
         },
         "engagement": {
             "conversational_energy": 0.0, "debate_indicator": 25.0,

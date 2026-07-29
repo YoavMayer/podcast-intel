@@ -4,7 +4,7 @@ Open-source podcast analysis and quality scoring framework. Automatically transc
 
 ## Features
 
-- **Podcast Quality Score (PQS)** - Comprehensive 5-domain scoring framework (Audio, Delivery, Structure, Content, Engagement) with 39 sub-metrics
+- **Podcast Quality Score (PQS)** - Comprehensive 5-domain scoring framework (Audio, Delivery, Structure, Content, Engagement) with 37 sub-metrics
 - **Panel Chemistry Analysis** - Speaker balance, interaction patterns, energy tracking, and interruption detection
 - **Automated Transcription** - Whisper-powered transcription with MFCC + spectral-clustering speaker diarization (CPU)
 - **Topic Inventory** - Extract and categorize discussion topics with LLM-powered analysis
@@ -15,11 +15,11 @@ Open-source podcast analysis and quality scoring framework. Automatically transc
 
 ### Feature Status
 
-> v0.2.0 is an early release. Some modules are production-ready, others are in active development.
+> v0.3.0 is an early release. Some modules are production-ready, others are in active development.
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| PQS v3 scoring engine | **Complete** | 5 domains, 39 sub-metrics, fully calibrated |
+| PQS v3 scoring engine | **Complete** | 5 domains, 37 sub-metrics, fully calibrated |
 | SQLite database + models | **Complete** | 10-table schema with Pydantic validation |
 | RSS ingestion | **Complete** | Feed parsing, metadata extraction, download |
 | Mock data system | **Complete** | Full synthetic episodes for testing |
@@ -97,7 +97,7 @@ python tools/run_episode_analysis.py 42
 ### View Results
 
 Reports are generated in `reports/episode_42/` with:
-- `pqs_v3_scores.json` - Full quality scores across 5 domains and 39 sub-metrics
+- `pqs_v3_scores.json` - Full quality scores across 5 domains and 37 sub-metrics
 - `one_pager.html` - Mobile-first pre-recording brief with score trends
 - `panel_chemistry.html` - Speaker dynamics and interactions
 - `transcript.json` - Full timestamped transcript with speaker labels
@@ -158,7 +158,7 @@ podcast-intel/
 - **Ingestion**: Fetch RSS feeds, download MP3 files, extract metadata
 - **Transcription**: Whisper-based speech-to-text with MFCC + spectral-clustering diarization
 - **Analysis**: Filler detection, silence analysis, episode metrics
-- **Scoring**: PQS v3 framework with 5 domains and 39 sub-metrics
+- **Scoring**: PQS v3 framework with 5 domains and 37 sub-metrics
 
 ## Podcast Quality Score (PQS) v3
 

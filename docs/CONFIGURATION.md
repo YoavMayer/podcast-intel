@@ -65,7 +65,7 @@ Core podcast metadata.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `name` | string | **required** | Podcast name |
-| `language` | string | `"en"` | ISO 639-1 language code (e.g., `"en"`, `"he"`, `"es"`) |
+| `language` | string | `"he"` | ISO 639-1 language code (e.g., `"he"`, `"en"`, `"es"`). Selects the language preset, and the briefing's text direction |
 | `rss_url` | string | `""` | RSS feed URL |
 | `description` | string | `""` | Podcast description |
 
@@ -96,13 +96,16 @@ speakers:
 
 #### `models` (optional)
 
-NLP model configuration. If not specified, uses language preset defaults.
+NLP model configuration. If not specified, uses language preset defaults. The
+defaults below are the Hebrew preset's, because `language` itself defaults to
+`"he"`; setting `podcast.language: "en"` swaps all three for the English
+preset's without naming a single model.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `transcription` | string | `"openai/whisper-large-v3-turbo"` | Whisper model for transcription |
-| `ner` | string | `"dslim/bert-base-NER"` | *Reserved* -- NER is not implemented |
-| `sentiment` | string | `"cardiffnlp/twitter-roberta-base-sentiment-latest"` | *Reserved* -- sentiment analysis is not implemented |
+| `transcription` | string | `"ivrit-ai/whisper-large-v3-turbo"` | Whisper model for transcription |
+| `ner` | string | `"dicta-il/dictabert-ner"` | *Reserved* -- NER is not implemented |
+| `sentiment` | string | `"avichr/heBERT_sentiment_analysis"` | *Reserved* -- sentiment analysis is not implemented |
 | `embedding` | string | `"BAAI/bge-m3"` | *Reserved* -- semantic search is not implemented |
 | `reranker` | string | `"BAAI/bge-reranker-v2-m3"` | *Reserved* -- semantic search is not implemented |
 
@@ -111,10 +114,10 @@ NLP model configuration. If not specified, uses language preset defaults.
 
 **Supported Transcription Models:**
 
-- `openai/whisper-large-v3-turbo` (default, English/multilingual)
+- `ivrit-ai/whisper-large-v3-turbo` (default, Hebrew-optimized -- the `he` preset)
+- `openai/whisper-large-v3-turbo` (the `en` preset; English/multilingual)
 - `openai/whisper-large-v3` (higher quality, slower)
 - `openai/whisper-medium` (faster, lower quality)
-- `ivrit-ai/whisper-large-v3-turbo` (Hebrew-optimized)
 
 #### `branding` (optional)
 
@@ -178,7 +181,7 @@ All configuration can be overridden with environment variables prefixed with `PO
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `PODCAST_INTEL_TRANSCRIPTION_MODEL` | string | `"openai/whisper-large-v3-turbo"` | Whisper model |
+| `PODCAST_INTEL_TRANSCRIPTION_MODEL` | string | `"ivrit-ai/whisper-large-v3-turbo"` | Whisper model (the `he` preset's) |
 | `PODCAST_INTEL_TRANSCRIPTION_DEVICE` | string | `"cuda"` | Device (`cuda` or `cpu`) |
 | `PODCAST_INTEL_TRANSCRIPTION_COMPUTE_TYPE` | string | `"float16"` | Compute type for faster-whisper |
 | `PODCAST_INTEL_DIARIZATION_ENABLED` | bool | `true` | Enable speaker diarization |
@@ -192,8 +195,8 @@ All four are *reserved*: they are parsed into `Config`, but no packaged code rea
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `PODCAST_INTEL_NER_MODEL` | string | `"dslim/bert-base-NER"` | Reserved -- NER not implemented |
-| `PODCAST_INTEL_SENTIMENT_MODEL` | string | `"cardiffnlp/twitter-roberta-base-sentiment-latest"` | Reserved -- sentiment not implemented |
+| `PODCAST_INTEL_NER_MODEL` | string | `"dicta-il/dictabert-ner"` | Reserved -- NER not implemented |
+| `PODCAST_INTEL_SENTIMENT_MODEL` | string | `"avichr/heBERT_sentiment_analysis"` | Reserved -- sentiment not implemented |
 | `PODCAST_INTEL_EMBEDDING_MODEL` | string | `"BAAI/bge-m3"` | Reserved -- search not implemented |
 | `PODCAST_INTEL_RERANKER_MODEL` | string | `"BAAI/bge-reranker-v2-m3"` | Reserved -- search not implemented |
 
@@ -288,10 +291,11 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md#adding-language-presets) for how to add
 1. **Environment variables** (e.g., `PODCAST_INTEL_LANGUAGE=he`) and the **`.env`** file
 2. **podcast.yaml** in the current directory or a parent
 3. **Language preset** for the resolved `podcast.language` (`presets/{lang}.yaml`)
-4. **Built-in defaults** (the field defaults on `Config`)
+4. **Built-in defaults** (the field defaults on `Config`, themselves read from
+   the `he` preset -- see `presets.DEFAULT_LANGUAGE`)
 
 The language itself is resolved with the same precedence: `PODCAST_INTEL_LANGUAGE`
-beats `podcast.language`, which beats the `"en"` default.
+beats `podcast.language`, which beats the `"he"` default.
 
 ### Which keys participate
 

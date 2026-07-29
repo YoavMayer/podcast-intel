@@ -135,6 +135,18 @@ def test_domain_weights_have_five_entries():
     assert len(DOMAIN_WEIGHTS) == 5
 
 
+def test_content_weights_are_six_subject_neutral_metrics():
+    """Content Depth must not assume what the podcast is about."""
+    assert set(CONTENT_WEIGHTS) == {
+        "analytical_depth_ratio",
+        "content_words_per_minute",
+        "topic_coverage_breadth",
+        "discussion_density",
+        "domain_entity_density",
+        "opinion_fact_ratio",
+    }
+
+
 # ------------------------------------------------------------------ #
 # 5. Representative sub-metric scoring functions
 # ------------------------------------------------------------------ #
@@ -261,8 +273,7 @@ SAMPLE_STRUCTURE = {
 SAMPLE_CONTENT = {
     "analytical_depth_ratio": 10.0, "content_words_per_minute": 120.0,
     "topic_coverage_breadth": 0.90, "discussion_density": 2.2,
-    "domain_entity_density": 5.0, "match_reference_density": 3.0,
-    "tactical_depth_density": 2.5, "opinion_fact_ratio": 1.0,
+    "domain_entity_density": 5.0, "opinion_fact_ratio": 1.0,
 }
 SAMPLE_ENGAGEMENT = {
     "conversational_energy": 5.0, "debate_indicator": 4.5,
@@ -381,6 +392,12 @@ class TestNormalizeMetric:
 def test_compute_audio_quality_score_wrapper():
     full = compute_audio_domain(SAMPLE_AUDIO)
     assert compute_audio_quality_score(SAMPLE_AUDIO) == full["domain_score"]
+
+
+def test_content_domain_ignores_legacy_sport_keys():
+    """A caller still passing the removed 3.0.0 keys gets a 3.1.0 score, not a crash."""
+    legacy = dict(SAMPLE_CONTENT, match_reference_density=3.0, tactical_depth_density=2.5)
+    assert compute_content_domain(legacy) == compute_content_domain(SAMPLE_CONTENT)
 
 
 def test_compute_content_depth_score_wrapper():

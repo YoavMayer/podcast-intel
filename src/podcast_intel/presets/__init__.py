@@ -16,7 +16,7 @@ Example:
     'ivrit-ai/whisper-large-v3-turbo'
 """
 
-from functools import cache, lru_cache
+from functools import cache
 from importlib import resources
 from typing import Any
 
@@ -27,6 +27,17 @@ AVAILABLE_PRESETS: dict[str, str] = {
     "en": "english.yaml",
     "he": "hebrew.yaml",
 }
+
+#: The language assumed when nothing says otherwise.
+#:
+#: Hebrew, deliberately. This framework serves many podcasts and most of them are
+#: Hebrew, so the out-of-the-box stack is the Hebrew one. It is the ONE place the
+#: default lives: ``config.Config``'s model and filler defaults and
+#: ``analysis.filler_detector``'s fallback lexicon both resolve through
+#: ``load_preset(DEFAULT_LANGUAGE)`` rather than repeating any model ID or word
+#: list. An English show sets ``podcast.language: "en"`` and gets the English
+#: preset -- one line, no other change.
+DEFAULT_LANGUAGE = "he"
 
 
 def _normalize(code: str) -> str:
@@ -79,4 +90,36 @@ def load_preset(code: str) -> dict[str, Any]:
     return data
 
 
-__all__ = ["AVAILABLE_PRESETS", "load_preset", "has_preset"]
+def preset_value(dotted: str, code: str = DEFAULT_LANGUAGE) -> Any:
+    """
+    Read one dotted key out of a language preset.
+
+    Used to source built-in defaults from the shipped preset instead of
+    hard-coding a second copy of a model ID or a filler list somewhere else.
+
+    Args:
+        dotted: Dotted path into the preset, e.g. ``"models.transcription"``.
+        code: Language code; defaults to :data:`DEFAULT_LANGUAGE`.
+
+    Returns:
+        The value, or ``None`` if the key is absent.
+
+    Example:
+        >>> preset_value("models.transcription")
+        'ivrit-ai/whisper-large-v3-turbo'
+    """
+    node: Any = load_preset(code)
+    for part in dotted.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node
+
+
+__all__ = [
+    "AVAILABLE_PRESETS",
+    "DEFAULT_LANGUAGE",
+    "has_preset",
+    "load_preset",
+    "preset_value",
+]

@@ -11,7 +11,7 @@ See what podcast-intel produces after analyzing an episode.
 **Path:** `examples/sample-output/`
 
 **Files:**
-- `pqs_v3_scores.json` -- Full PQS v3 quality scores with 5 domains, 39 sub-metrics and a
+- `pqs_v3_scores.json` -- Full PQS v3 quality scores with 5 domains, 37 sub-metrics and a
   speaker breakdown. Its `coaching_notes` array was hand-written for this sample: automated
   coaching notes are **planned**, and no packaged code generates them today.
 - `pre_recording_brief_ep43.html` -- Mobile-first HTML brief that panelists review in 2 minutes before recording

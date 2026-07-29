@@ -11,6 +11,11 @@ its talking-point templates assume a match. Generalising the event model and
 this renderer is tracked work; until then, treat the briefing output as
 football-shaped regardless of the podcast.
 
+Defaults are Hebrew-first, matching ``presets.DEFAULT_LANGUAGE``: an
+unconfigured briefing renders ``dir="rtl"`` with a Heebo-first font stack.
+``direction`` follows ``podcast.language`` unless podcast.yaml states it
+explicitly, so an English show only has to set the language.
+
 Branding and voice come entirely from podcast.yaml configuration:
     podcast:
       name: "My Podcast"
@@ -46,6 +51,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from podcast_intel.presets import DEFAULT_LANGUAGE
 from podcast_intel.triggers.community_events import CommunityEvent
 
 logger = logging.getLogger(__name__)
@@ -60,15 +66,20 @@ _DEFAULT_BRANDING = {
     "secondary_color": "#ffffff",
     "accent_color": "#4a90d9",
     "highlight_color": "#c4a747",
-    "font_family": "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+    # Heebo covers Hebrew and Latin; the generic families are the fallback chain
+    # for anyone who has not installed it.
+    "font_family": "Heebo, system-ui, -apple-system, sans-serif",
 }
 
+# Hebrew-first, matching presets.DEFAULT_LANGUAGE: an unconfigured briefing
+# renders RTL Hebrew markup. An English show sets `direction: "ltr"` and
+# `language: "en"` under `podcast:` in podcast.yaml.
 _DEFAULT_PODCAST = {
     "name": "Podcast",
     "name_en": "Podcast",
     "link": "",
-    "direction": "ltr",
-    "language": "en",
+    "direction": "rtl",
+    "language": DEFAULT_LANGUAGE,
 }
 
 
@@ -93,9 +104,35 @@ def _get_branding(config: dict[str, Any]) -> dict[str, str]:
     return branding
 
 
+#: Languages written right-to-left, by ISO 639-1 code.
+_RTL_LANGUAGES = frozenset({"he", "ar", "fa", "ur", "yi", "ps", "dv"})
+
+
+def text_direction(language: str) -> str:
+    """Return ``"rtl"`` or ``"ltr"`` for an ISO 639-1 language code.
+
+    Args:
+        language: Language code, e.g. ``"he"``. A region suffix is ignored.
+
+    Returns:
+        ``"rtl"`` for a right-to-left language, ``"ltr"`` otherwise.
+
+    Example:
+        >>> text_direction("he"), text_direction("en")
+        ('rtl', 'ltr')
+    """
+    code = str(language or "").strip().lower().replace("_", "-").split("-")[0]
+    return "rtl" if code in _RTL_LANGUAGES else "ltr"
+
+
 def _get_podcast_info(config: dict[str, Any]) -> dict[str, str]:
     """
     Extract podcast identity from configuration.
+
+    ``direction`` FOLLOWS ``language`` unless podcast.yaml states it explicitly.
+    Requiring a separate key would mean an English show that set only
+    ``podcast.language: "en"`` still rendered RTL markup -- the acceptance
+    contract is four keys, and ``direction`` is not one of them.
 
     Args:
         config: Full podcast.yaml configuration dictionary
@@ -109,6 +146,8 @@ def _get_podcast_info(config: dict[str, Any]) -> dict[str, str]:
         for key in _DEFAULT_PODCAST:
             if key in podcast_section:
                 info[key] = podcast_section[key]
+        if "direction" not in podcast_section:
+            info["direction"] = text_direction(info["language"])
     return info
 
 
