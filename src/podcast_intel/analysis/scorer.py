@@ -14,6 +14,108 @@ Predecessor: PQS v2.1 (4 domains, 21 sub-metrics)
 from typing import Any
 
 # ============================================================
+# Scoring-profile version
+# ============================================================
+#
+# PROFILE_VERSION identifies the exact scoring profile that produced a score:
+# the domain weights, the sub-metric weights and every breakpoint table in this
+# module. It is NOT the package version and NOT the "v3" framework generation.
+#
+# Bump it whenever a change can move a composite score. Adding or removing a
+# sub-metric renormalises its domain's weights, which silently shifts every
+# score computed before the change -- old artifacts stay readable but stop
+# being COMPARABLE. Stamping the version into the returned dict is what lets
+# `check_comparable` refuse to compare across that boundary instead of quietly
+# reporting a regression that is really just a rescale.
+#
+# Comparability is exact string equality. A profile that scores differently in
+# any way is a different profile; there is no "compatible minor bump" here.
+
+PROFILE_VERSION = "3.0.0"
+
+#: Key under which :func:`compute_pqs` stamps the profile version.
+PROFILE_VERSION_KEY = "profile_version"
+
+#: Domains that must NOT move when a purely content-domain change lands.
+#: The de-sport change removes two CONTENT sub-metrics; if any of these four
+#: domain blocks changes too, the blast radius escaped the content domain.
+NON_CONTENT_DOMAINS = ("audio", "delivery", "structure", "engagement")
+
+
+class ProfileVersionError(ValueError):
+    """Raised when an artifact's scoring profile is not comparable to the current one."""
+
+
+def artifact_profile_version(artifact: dict[str, Any]) -> str | None:
+    """Extract the scoring-profile version an artifact was produced under.
+
+    Recognises two shapes:
+
+    * current -- a top-level ``profile_version`` string, as stamped by
+      :func:`compute_pqs`;
+    * legacy -- a nested ``{"profile": {"version": ...}}`` block, the shape
+      historical ``pqs_recomputed.json`` artifacts carry.
+
+    Returns:
+        The version string, or ``None`` if the artifact carries no version at
+        all. ``None`` means *unknown*, never *current*: an unversioned artifact
+        predates versioning and is therefore not comparable.
+    """
+    value = artifact.get(PROFILE_VERSION_KEY)
+    if isinstance(value, str) and value:
+        return value
+
+    legacy = artifact.get("profile")
+    if isinstance(legacy, dict):
+        legacy_version = legacy.get("version")
+        if isinstance(legacy_version, str) and legacy_version:
+            return legacy_version
+        if isinstance(legacy_version, int | float):
+            return str(legacy_version)
+
+    return None
+
+
+def is_comparable(artifact: dict[str, Any]) -> bool:
+    """Return True only if ``artifact`` was scored under the current profile.
+
+    Unversioned artifacts return False. That is deliberate: silently treating
+    them as current is the exact failure this guard exists to prevent.
+    """
+    return artifact_profile_version(artifact) == PROFILE_VERSION
+
+
+def check_comparable(artifact: dict[str, Any], *, source: str = "artifact") -> None:
+    """Raise unless ``artifact`` may be compared against freshly computed scores.
+
+    Args:
+        artifact: A parsed scoring artifact.
+        source: Label used in the error message, e.g. a file path.
+
+    Raises:
+        ProfileVersionError: If the artifact carries a different profile
+            version, or none at all.
+    """
+    found = artifact_profile_version(artifact)
+    if found == PROFILE_VERSION:
+        return
+
+    if found is None:
+        detail = (
+            "carries no scoring-profile version, so it predates profile "
+            "versioning and its weights cannot be established"
+        )
+    else:
+        detail = f"was scored under profile {found!r}"
+
+    raise ProfileVersionError(
+        f"{source} {detail}; the current profile is {PROFILE_VERSION!r}. "
+        "Scores from different profiles are not comparable -- rescore the "
+        "source data under the current profile instead of comparing directly."
+    )
+
+
+# ============================================================
 # Utility
 # ============================================================
 
@@ -552,7 +654,10 @@ def compute_pqs(
     ``compute_*_domain`` functions for required keys.
 
     Returns:
-        Dict with ``pqs_v3`` composite, per-domain breakdowns, and formula.
+        Dict with ``pqs_v3`` composite, per-domain breakdowns, formula, and the
+        ``profile_version`` the score was computed under. Persist that version
+        with the score: :func:`check_comparable` needs it to tell a real quality
+        change from a rescale caused by a weight change.
     """
     domains = {
         "audio": compute_audio_domain(audio_metrics),
@@ -566,6 +671,7 @@ def compute_pqs(
     )
     return {
         "pqs_v3": round(composite, 2),
+        PROFILE_VERSION_KEY: PROFILE_VERSION,
         "domains": domains,
         "domain_weights": DOMAIN_WEIGHTS,
         "formula": (

@@ -1,0 +1,546 @@
+{
+  "cases": {
+    "edges": {
+      "expected": {
+        "domain_weights": {
+          "audio": 0.1,
+          "content": 0.25,
+          "delivery": 0.25,
+          "engagement": 0.2,
+          "structure": 0.2
+        },
+        "domains": {
+          "audio": {
+            "domain_score": 16.25,
+            "sub_scores": {
+              "clipping_index": 0.0,
+              "loudness_compliance": 0.0,
+              "loudness_range": 0.0,
+              "signal_to_noise": 5.0,
+              "spectral_balance": 100.0
+            },
+            "weights": {
+              "clipping_index": 0.15,
+              "loudness_compliance": 0.3,
+              "loudness_range": 0.15,
+              "signal_to_noise": 0.25,
+              "spectral_balance": 0.15
+            }
+          },
+          "content": {
+            "domain_score": 44.3,
+            "sub_scores": {
+              "analytical_depth_ratio": 0.0,
+              "content_words_per_minute": 100.0,
+              "discussion_density": 100.0,
+              "domain_entity_density": 10.0,
+              "match_reference_density": 100.0,
+              "opinion_fact_ratio": 10.0,
+              "tactical_depth_density": 10.0,
+              "topic_coverage_breadth": 0.0
+            },
+            "weights": {
+              "analytical_depth_ratio": 0.21875,
+              "content_words_per_minute": 0.175,
+              "discussion_density": 0.175,
+              "domain_entity_density": 0.08,
+              "match_reference_density": 0.07,
+              "opinion_fact_ratio": 0.07,
+              "tactical_depth_density": 0.08,
+              "topic_coverage_breadth": 0.13125
+            }
+          },
+          "delivery": {
+            "domain_score": 57.6,
+            "sub_scores": {
+              "core_filler_rate": 0.0,
+              "dead_air_count": 0.0,
+              "filler_rate": 100.0,
+              "filler_trajectory": 100.0,
+              "hesitation_rate": 100.0,
+              "interruption_rate": 0.0,
+              "monotony_risk": 10.0,
+              "silence_density": 100.0,
+              "wpm_consistency": 30.0
+            },
+            "weights": {
+              "core_filler_rate": 0.12,
+              "dead_air_count": 0.08,
+              "filler_rate": 0.2,
+              "filler_trajectory": 0.16,
+              "hesitation_rate": 0.05,
+              "interruption_rate": 0.05,
+              "monotony_risk": 0.1,
+              "silence_density": 0.12,
+              "wpm_consistency": 0.12
+            }
+          },
+          "engagement": {
+            "domain_score": 54.1,
+            "sub_scores": {
+              "conversational_energy": 0.0,
+              "crosstalk_ratio": 100.0,
+              "debate_indicator": 0.0,
+              "dropoff_risk_index": 0.0,
+              "fatigue_signal": 100.0,
+              "hook_score": 100.0,
+              "memorable_moment_density": 10.0,
+              "q4_sustain": 100.0,
+              "sentiment_flow_volatility": 10.0
+            },
+            "weights": {
+              "conversational_energy": 0.14,
+              "crosstalk_ratio": 0.14,
+              "debate_indicator": 0.105,
+              "dropoff_risk_index": 0.07,
+              "fatigue_signal": 0.175,
+              "hook_score": 0.07,
+              "memorable_moment_density": 0.08,
+              "q4_sustain": 0.14,
+              "sentiment_flow_volatility": 0.08
+            }
+          },
+          "structure": {
+            "domain_score": 29.25,
+            "sub_scores": {
+              "closing_quality": 0.0,
+              "duration_fit": 0.0,
+              "fragmentation": 0.0,
+              "intro_structure": 100.0,
+              "monologue_depth": 0.0,
+              "opening_tightness": 0.0,
+              "segment_balance": 100.0,
+              "transition_quality": 100.0
+            },
+            "weights": {
+              "closing_quality": 0.07,
+              "duration_fit": 0.1875,
+              "fragmentation": 0.15,
+              "intro_structure": 0.08,
+              "monologue_depth": 0.1125,
+              "opening_tightness": 0.1875,
+              "segment_balance": 0.1125,
+              "transition_quality": 0.1
+            }
+          }
+        },
+        "formula": "0.10*Audio + 0.25*Delivery + 0.20*Structure + 0.25*Content + 0.20*Engagement",
+        "pqs_v3": 43.77,
+        "profile_version": "3.0.0"
+      },
+      "inputs": {
+        "audio": {
+          "clip_pct": 5.0,
+          "lra_db": 0.0,
+          "lufs": -40.0,
+          "snr_db": 0.0,
+          "speech_band_pct": 100.0
+        },
+        "content": {
+          "analytical_depth_ratio": 0.0,
+          "content_words_per_minute": 500.0,
+          "discussion_density": 9.9,
+          "domain_entity_density": 0.0,
+          "match_reference_density": 50.0,
+          "opinion_fact_ratio": 9.9,
+          "tactical_depth_density": 0.0,
+          "topic_coverage_breadth": 0.0
+        },
+        "delivery": {
+          "core_filler_rate": 9.0,
+          "dead_air_count": 25.0,
+          "filler_rate": 0.0,
+          "filler_trajectory": -50.0,
+          "hesitation_rate": 0.0,
+          "interruption_rate": 40.0,
+          "monotony_risk": 0.0,
+          "silence_density": 0.0,
+          "wpm_consistency": 0.0
+        },
+        "engagement": {
+          "conversational_energy": 0.0,
+          "crosstalk_ratio": 99.0,
+          "debate_indicator": 25.0,
+          "dropoff_risk_index": 25.0,
+          "fatigue_signal": -9.0,
+          "hook_score": 9.0,
+          "memorable_moment_density": 0.0,
+          "q4_sustain": 0.0,
+          "sentiment_flow_volatility": 0.0
+        },
+        "structure": {
+          "closing_quality": 0.0,
+          "duration_fit": 0.0,
+          "fragmentation": 25.0,
+          "intro_structure": 5.0,
+          "monologue_depth": 0.0,
+          "opening_tightness": 5.0,
+          "segment_balance": 0.0,
+          "transition_quality": 10.0
+        }
+      }
+    },
+    "strong": {
+      "expected": {
+        "domain_weights": {
+          "audio": 0.1,
+          "content": 0.25,
+          "delivery": 0.25,
+          "engagement": 0.2,
+          "structure": 0.2
+        },
+        "domains": {
+          "audio": {
+            "domain_score": 97.5,
+            "sub_scores": {
+              "clipping_index": 100.0,
+              "loudness_compliance": 100.0,
+              "loudness_range": 100.0,
+              "signal_to_noise": 90.0,
+              "spectral_balance": 100.0
+            },
+            "weights": {
+              "clipping_index": 0.15,
+              "loudness_compliance": 0.3,
+              "loudness_range": 0.15,
+              "signal_to_noise": 0.25,
+              "spectral_balance": 0.15
+            }
+          },
+          "content": {
+            "domain_score": 92.78,
+            "sub_scores": {
+              "analytical_depth_ratio": 95.0,
+              "content_words_per_minute": 100.0,
+              "discussion_density": 95.0,
+              "domain_entity_density": 80.0,
+              "match_reference_density": 80.0,
+              "opinion_fact_ratio": 100.0,
+              "tactical_depth_density": 80.0,
+              "topic_coverage_breadth": 95.0
+            },
+            "weights": {
+              "analytical_depth_ratio": 0.21875,
+              "content_words_per_minute": 0.175,
+              "discussion_density": 0.175,
+              "domain_entity_density": 0.08,
+              "match_reference_density": 0.07,
+              "opinion_fact_ratio": 0.07,
+              "tactical_depth_density": 0.08,
+              "topic_coverage_breadth": 0.13125
+            }
+          },
+          "delivery": {
+            "domain_score": 98.67,
+            "sub_scores": {
+              "core_filler_rate": 100.0,
+              "dead_air_count": 100.0,
+              "filler_rate": 93.33,
+              "filler_trajectory": 100.0,
+              "hesitation_rate": 100.0,
+              "interruption_rate": 100.0,
+              "monotony_risk": 100.0,
+              "silence_density": 100.0,
+              "wpm_consistency": 100.0
+            },
+            "weights": {
+              "core_filler_rate": 0.12,
+              "dead_air_count": 0.08,
+              "filler_rate": 0.2,
+              "filler_trajectory": 0.16,
+              "hesitation_rate": 0.05,
+              "interruption_rate": 0.05,
+              "monotony_risk": 0.1,
+              "silence_density": 0.12,
+              "wpm_consistency": 0.12
+            }
+          },
+          "engagement": {
+            "domain_score": 91.58,
+            "sub_scores": {
+              "conversational_energy": 80.0,
+              "crosstalk_ratio": 85.0,
+              "debate_indicator": 100.0,
+              "dropoff_risk_index": 100.0,
+              "fatigue_signal": 95.0,
+              "hook_score": 85.0,
+              "memorable_moment_density": 80.0,
+              "q4_sustain": 100.0,
+              "sentiment_flow_volatility": 100.0
+            },
+            "weights": {
+              "conversational_energy": 0.14,
+              "crosstalk_ratio": 0.14,
+              "debate_indicator": 0.105,
+              "dropoff_risk_index": 0.07,
+              "fatigue_signal": 0.175,
+              "hook_score": 0.07,
+              "memorable_moment_density": 0.08,
+              "q4_sustain": 0.14,
+              "sentiment_flow_volatility": 0.08
+            }
+          },
+          "structure": {
+            "domain_score": 99.25,
+            "sub_scores": {
+              "closing_quality": 100.0,
+              "duration_fit": 100.0,
+              "fragmentation": 95.0,
+              "intro_structure": 100.0,
+              "monologue_depth": 100.0,
+              "opening_tightness": 100.0,
+              "segment_balance": 100.0,
+              "transition_quality": 100.0
+            },
+            "weights": {
+              "closing_quality": 0.07,
+              "duration_fit": 0.1875,
+              "fragmentation": 0.15,
+              "intro_structure": 0.08,
+              "monologue_depth": 0.1125,
+              "opening_tightness": 0.1875,
+              "segment_balance": 0.1125,
+              "transition_quality": 0.1
+            }
+          }
+        },
+        "formula": "0.10*Audio + 0.25*Delivery + 0.20*Structure + 0.25*Content + 0.20*Engagement",
+        "pqs_v3": 95.78,
+        "profile_version": "3.0.0"
+      },
+      "inputs": {
+        "audio": {
+          "clip_pct": 0.0,
+          "lra_db": 7.0,
+          "lufs": -16.0,
+          "snr_db": 20.0,
+          "speech_band_pct": 75.0
+        },
+        "content": {
+          "analytical_depth_ratio": 10.0,
+          "content_words_per_minute": 120.0,
+          "discussion_density": 2.2,
+          "domain_entity_density": 5.0,
+          "match_reference_density": 3.0,
+          "opinion_fact_ratio": 1.0,
+          "tactical_depth_density": 2.5,
+          "topic_coverage_breadth": 0.9
+        },
+        "delivery": {
+          "core_filler_rate": 0.5,
+          "dead_air_count": 0.0,
+          "filler_rate": 3.0,
+          "filler_trajectory": -3.5,
+          "hesitation_rate": 2.0,
+          "interruption_rate": 5.0,
+          "monotony_risk": 0.22,
+          "silence_density": 1.5,
+          "wpm_consistency": 5.0
+        },
+        "engagement": {
+          "conversational_energy": 5.0,
+          "crosstalk_ratio": 15.0,
+          "debate_indicator": 4.5,
+          "dropoff_risk_index": 3.0,
+          "fatigue_signal": -0.5,
+          "hook_score": 3.0,
+          "memorable_moment_density": 5.0,
+          "q4_sustain": 0.85,
+          "sentiment_flow_volatility": 0.7
+        },
+        "structure": {
+          "closing_quality": 5.0,
+          "duration_fit": 60.0,
+          "fragmentation": 1.0,
+          "intro_structure": 4.0,
+          "monologue_depth": 8.0,
+          "opening_tightness": 1.0,
+          "segment_balance": 0.02,
+          "transition_quality": 7.0
+        }
+      }
+    },
+    "weak": {
+      "expected": {
+        "domain_weights": {
+          "audio": 0.1,
+          "content": 0.25,
+          "delivery": 0.25,
+          "engagement": 0.2,
+          "structure": 0.2
+        },
+        "domains": {
+          "audio": {
+            "domain_score": 30.8,
+            "sub_scores": {
+              "clipping_index": 43.33,
+              "loudness_compliance": 31.25,
+              "loudness_range": 22.0,
+              "signal_to_noise": 32.5,
+              "spectral_balance": 23.33
+            },
+            "weights": {
+              "clipping_index": 0.15,
+              "loudness_compliance": 0.3,
+              "loudness_range": 0.15,
+              "signal_to_noise": 0.25,
+              "spectral_balance": 0.15
+            }
+          },
+          "content": {
+            "domain_score": 19.68,
+            "sub_scores": {
+              "analytical_depth_ratio": 27.0,
+              "content_words_per_minute": 24.8,
+              "discussion_density": 16.67,
+              "domain_entity_density": 10.0,
+              "match_reference_density": 0.0,
+              "opinion_fact_ratio": 28.0,
+              "tactical_depth_density": 10.0,
+              "topic_coverage_breadth": 22.5
+            },
+            "weights": {
+              "analytical_depth_ratio": 0.21875,
+              "content_words_per_minute": 0.175,
+              "discussion_density": 0.175,
+              "domain_entity_density": 0.08,
+              "match_reference_density": 0.07,
+              "opinion_fact_ratio": 0.07,
+              "tactical_depth_density": 0.08,
+              "topic_coverage_breadth": 0.13125
+            }
+          },
+          "delivery": {
+            "domain_score": 30.07,
+            "sub_scores": {
+              "core_filler_rate": 36.0,
+              "dead_air_count": 31.5,
+              "filler_rate": 30.0,
+              "filler_trajectory": 30.0,
+              "hesitation_rate": 32.5,
+              "interruption_rate": 18.0,
+              "monotony_risk": 24.0,
+              "silence_density": 32.5,
+              "wpm_consistency": 30.0
+            },
+            "weights": {
+              "core_filler_rate": 0.12,
+              "dead_air_count": 0.08,
+              "filler_rate": 0.2,
+              "filler_trajectory": 0.16,
+              "hesitation_rate": 0.05,
+              "interruption_rate": 0.05,
+              "monotony_risk": 0.1,
+              "silence_density": 0.12,
+              "wpm_consistency": 0.12
+            }
+          },
+          "engagement": {
+            "domain_score": 15.31,
+            "sub_scores": {
+              "conversational_energy": 10.0,
+              "crosstalk_ratio": 6.67,
+              "debate_indicator": 30.0,
+              "dropoff_risk_index": 25.0,
+              "fatigue_signal": 13.33,
+              "hook_score": 10.0,
+              "memorable_moment_density": 10.0,
+              "q4_sustain": 16.0,
+              "sentiment_flow_volatility": 25.0
+            },
+            "weights": {
+              "conversational_energy": 0.14,
+              "crosstalk_ratio": 0.14,
+              "debate_indicator": 0.105,
+              "dropoff_risk_index": 0.07,
+              "fatigue_signal": 0.175,
+              "hook_score": 0.07,
+              "memorable_moment_density": 0.08,
+              "q4_sustain": 0.14,
+              "sentiment_flow_volatility": 0.08
+            }
+          },
+          "structure": {
+            "domain_score": 34.12,
+            "sub_scores": {
+              "closing_quality": 25.0,
+              "duration_fit": 26.67,
+              "fragmentation": 32.5,
+              "intro_structure": 32.5,
+              "monologue_depth": 30.0,
+              "opening_tightness": 55.0,
+              "segment_balance": 26.25,
+              "transition_quality": 32.5
+            },
+            "weights": {
+              "closing_quality": 0.07,
+              "duration_fit": 0.1875,
+              "fragmentation": 0.15,
+              "intro_structure": 0.08,
+              "monologue_depth": 0.1125,
+              "opening_tightness": 0.1875,
+              "segment_balance": 0.1125,
+              "transition_quality": 0.1
+            }
+          }
+        },
+        "formula": "0.10*Audio + 0.25*Delivery + 0.20*Structure + 0.25*Content + 0.20*Engagement",
+        "pqs_v3": 25.4,
+        "profile_version": "3.0.0"
+      },
+      "inputs": {
+        "audio": {
+          "clip_pct": 0.35,
+          "lra_db": 12.5,
+          "lufs": -23.5,
+          "snr_db": 4.0,
+          "speech_band_pct": 47.0
+        },
+        "content": {
+          "analytical_depth_ratio": 3.5,
+          "content_words_per_minute": 92.0,
+          "discussion_density": 1.45,
+          "domain_entity_density": 1.2,
+          "match_reference_density": 0.4,
+          "opinion_fact_ratio": 2.4,
+          "tactical_depth_density": 0.3,
+          "topic_coverage_breadth": 0.55
+        },
+        "delivery": {
+          "core_filler_rate": 2.4,
+          "dead_air_count": 3.1,
+          "filler_rate": 6.8,
+          "filler_trajectory": 6.0,
+          "hesitation_rate": 13.5,
+          "interruption_rate": 17.0,
+          "monotony_risk": 0.44,
+          "silence_density": 4.7,
+          "wpm_consistency": 14.0
+        },
+        "engagement": {
+          "conversational_energy": 2.5,
+          "crosstalk_ratio": 2.0,
+          "debate_indicator": 8.5,
+          "dropoff_risk_index": 8.5,
+          "fatigue_signal": 0.45,
+          "hook_score": 0.0,
+          "memorable_moment_density": 0.5,
+          "q4_sustain": 1.22,
+          "sentiment_flow_volatility": 1.35
+        },
+        "structure": {
+          "closing_quality": 1.0,
+          "duration_fit": 38.0,
+          "fragmentation": 6.4,
+          "intro_structure": 1.5,
+          "monologue_depth": 17.0,
+          "opening_tightness": 1.45,
+          "segment_balance": 0.13,
+          "transition_quality": 2.0
+        }
+      }
+    }
+  },
+  "note": "Frozen output of compute_pqs() for the profile named above. Regenerate with scripts/freeze_pqs_golden.py ONLY alongside an intended PROFILE_VERSION bump. Inputs are synthetic.",
+  "profile_version": "3.0.0"
+}
