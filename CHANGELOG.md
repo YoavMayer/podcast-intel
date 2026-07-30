@@ -69,6 +69,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tests pinning that football stays a working plug-in after the generic layer
   stopped assuming it, and that the mock corpus contains no sport vocabulary
   in its templates, its entities or a generated transcript.
+- **Release pipeline.** `.github/workflows/release.yml` publishes to PyPI from
+  a version tag using Trusted Publishing (OIDC), so no PyPI token is stored on
+  disk or in repository secrets. It gates on the full 3.10/3.11/3.12 CI matrix,
+  refuses a tag that disagrees with the packaged version, asserts the preset
+  YAMLs are inside the built wheel, and smoke-installs that wheel in a clean
+  virtualenv before uploading. A `workflow_dispatch` input publishes to
+  TestPyPI instead, for a dry run. `docs/RELEASING.md` documents the one-time
+  pypi.org trusted-publisher form and the tag procedure.
 
 ## [0.3.0] - 2026-07-29
 

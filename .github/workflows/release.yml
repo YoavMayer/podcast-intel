@@ -1,0 +1,223 @@
+# =============================================================================
+# Release Workflow -- build and publish to PyPI via Trusted Publishing (OIDC)
+# =============================================================================
+#
+# No API token is stored anywhere. GitHub mints a short-lived OIDC identity for
+# this job and PyPI exchanges it for a one-shot upload token, because the owner
+# registered this repository as a trusted publisher on pypi.org. There is no
+# secret on disk, no secret in repo settings, and nothing to rotate or leak.
+#
+# See docs/RELEASING.md for the one-time pypi.org form and the tag procedure.
+#
+# Triggers:
+#   push tag v*  -> full test matrix, build, publish to PyPI
+#   workflow_dispatch -> choose "testpypi" (dry run) or "pypi"
+#
+# Run the TestPyPI dry run at least once before the first real tag, so the
+# first production publish is not the first time this workflow has ever run.
+# =============================================================================
+
+name: Release
+
+on:
+  # --------------------------------------------------------------------------
+  # Version tags: v0.4.0, v1.2.3, v1.2.3rc1 ...
+  # --------------------------------------------------------------------------
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+  # --------------------------------------------------------------------------
+  # Manual run. Defaults to the TestPyPI dry run.
+  # --------------------------------------------------------------------------
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Publish target -- testpypi is a dry run, pypi is the real thing"
+        required: true
+        default: testpypi
+        type: choice
+        options:
+          - testpypi
+          - pypi
+
+permissions:
+  contents: read
+
+jobs:
+  # ===========================================================================
+  # 1. Full CI matrix (3.10 / 3.11 / 3.12) before anything is published.
+  #    ci.yml exposes workflow_call for exactly this.
+  # ===========================================================================
+  test:
+    name: CI gate
+    uses: ./.github/workflows/ci.yml
+
+  # ===========================================================================
+  # 2. Build sdist + wheel once, verify them, and hand the same bytes to
+  #    whichever publish job runs. Never rebuild between test and upload.
+  # ===========================================================================
+  build:
+    name: Build distributions
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade pip build twine
+
+      # -----------------------------------------------------------------------
+      # A mistyped tag is the easiest way to publish the wrong version, and PyPI
+      # will not let you replace it afterwards. Fail here instead.
+      # -----------------------------------------------------------------------
+      - name: Check tag matches the packaged version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          PKG=$(python -c "
+          import tomllib
+          with open('pyproject.toml','rb') as f:
+              print(tomllib.load(f)['project']['version'])
+          ")
+          echo "tag=$TAG pyproject=$PKG"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Tag v$TAG does not match pyproject.toml version $PKG. Delete the tag, fix the version, tag again."
+            exit 1
+          fi
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Check package metadata
+        run: twine check --strict dist/*
+
+      # -----------------------------------------------------------------------
+      # The language presets are data files read with importlib.resources. If
+      # package-data drops out of pyproject.toml they vanish silently from the
+      # wheel and every install breaks at runtime, not at build time.
+      # -----------------------------------------------------------------------
+      - name: Verify presets are inside the wheel
+        run: |
+          python - <<'PY'
+          import glob, sys, zipfile
+
+          wheel = glob.glob("dist/*.whl")[0]
+          names = set(zipfile.ZipFile(wheel).namelist())
+          required = {
+              "podcast_intel/presets/english.yaml",
+              "podcast_intel/presets/hebrew.yaml",
+          }
+          missing = sorted(required - names)
+          if missing:
+              sys.exit(f"::error::Wheel {wheel} is missing preset data files: {missing}")
+          print(f"{wheel}: presets present")
+          PY
+
+      # -----------------------------------------------------------------------
+      # Install the built wheel into an empty virtualenv, outside the source
+      # tree, so nothing can be satisfied by ./src by accident.
+      # -----------------------------------------------------------------------
+      - name: Smoke test the wheel in a clean environment
+        run: |
+          python -m venv "$RUNNER_TEMP/smoke"
+          "$RUNNER_TEMP/smoke/bin/python" -m pip install --quiet --upgrade pip
+          "$RUNNER_TEMP/smoke/bin/python" -m pip install --quiet dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/smoke/bin/python" -c "
+          import podcast_intel
+          from podcast_intel import Config
+          from podcast_intel.presets import load_preset
+          assert load_preset('en')['filler_words'], 'english preset empty'
+          assert load_preset('he')['filler_words'], 'hebrew preset empty'
+          print('imported podcast_intel', podcast_intel.__version__, 'from', podcast_intel.__file__)
+          "
+          "$RUNNER_TEMP/smoke/bin/podcast-intel" --help > /dev/null
+          echo "console script OK"
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  # ===========================================================================
+  # 3a. Dry run -- TestPyPI. Manual only.
+  #     Trusted publisher for this job is registered on test.pypi.org,
+  #     environment name: testpypi
+  # ===========================================================================
+  publish-testpypi:
+    name: Publish to TestPyPI (dry run)
+    needs: build
+    if: >-
+      github.repository == 'YoavMayer/podcast-intel' &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.target == 'testpypi'
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/podcast-intel
+
+    permissions:
+      # Mints the short-lived OIDC token. Without this the upload gets a 403
+      # and no amount of PyPI-side configuration will help.
+      id-token: write
+
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to TestPyPI
+        # Pinned by commit SHA (v1.14.2). This action is the only step that
+        # can mint an upload token, so it does not float on a tag.
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # A repeated dry run of an unchanged version is not a failure.
+          skip-existing: true
+
+  # ===========================================================================
+  # 3b. The real thing -- PyPI. Runs on a version tag, or on a deliberate
+  #     manual run with target=pypi.
+  #     Trusted publisher for this job is registered on pypi.org,
+  #     environment name: pypi
+  # ===========================================================================
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    if: >-
+      github.repository == 'YoavMayer/podcast-intel' &&
+      (
+        startsWith(github.ref, 'refs/tags/v') ||
+        (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+      )
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/podcast-intel
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        # Pinned by commit SHA (v1.14.2). See the note in publish-testpypi.
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33

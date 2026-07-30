@@ -377,17 +377,19 @@ def test_spanish_resolves_through_get_config(tmp_path):
 
 ## Release Process
 
-Maintainers follow this process for releases:
+Maintainers: the full procedure, including the one-time PyPI trusted-publisher
+setup, is in [docs/RELEASING.md](docs/RELEASING.md). In short:
 
-1. Update version in `pyproject.toml`
+1. Update the version in **both** `pyproject.toml` and
+   `src/podcast_intel/__init__.py` -- the release workflow fails if they or the
+   tag disagree
 2. Update `CHANGELOG.md` with release notes
-3. Create a git tag: `git tag v0.2.0`
-4. Push tag: `git push origin v0.2.0`
-5. Build and publish to PyPI:
-   ```bash
-   python -m build
-   twine upload dist/*
-   ```
+3. Push the commit, then tag and push the tag: `git tag -a vX.Y.Z -m "Release
+   vX.Y.Z" && git push origin vX.Y.Z`
+
+The tag push runs `.github/workflows/release.yml`, which builds the sdist and
+wheel and publishes them to PyPI over OIDC. Nobody uploads by hand and there is
+no PyPI token to hold.
 
 ## Questions?
 

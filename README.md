@@ -63,6 +63,33 @@ pip install "podcast-intel[transcription] @ git+https://github.com/YoavMayer/pod
 pip install "podcast-intel[all] @ git+https://github.com/YoavMayer/podcast-intel.git"
 ```
 
+<!--
+PENDING FIRST PYPI RELEASE -- do not enable before the release actually lands.
+The name podcast-intel is unclaimed until the first upload succeeds, so
+`pip install podcast-intel` currently 404s. See docs/RELEASING.md step 4.
+
+Once https://pypi.org/project/podcast-intel/ resolves, replace the block above
+with the block below, replace the git install in "Try It in 60 Seconds" with
+`pip install podcast-intel`, and delete this comment.
+
+```bash
+pip install podcast-intel
+
+# With transcription support (GPU recommended):
+pip install "podcast-intel[transcription]"
+
+# With all features:
+pip install "podcast-intel[all]"
+```
+
+Installing from source stays available:
+
+```bash
+pip install git+https://github.com/YoavMayer/podcast-intel.git
+```
+-->
+
+
 ### Set Up Your Podcast
 
 Create a `podcast.yaml` in your project directory:
