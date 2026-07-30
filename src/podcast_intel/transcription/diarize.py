@@ -7,16 +7,16 @@ into N speakers, and updates the database with speaker assignments.
 
 import sys
 import time
-import numpy as np
-import librosa
-import soundfile as sf
 from pathlib import Path
-from sklearn.cluster import SpectralClustering, AgglomerativeClustering
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import silhouette_score
 
-from podcast_intel.models.database import Database
+import librosa
+import numpy as np
+from sklearn.cluster import AgglomerativeClustering
+from sklearn.metrics import silhouette_score
+from sklearn.preprocessing import StandardScaler
+
 from podcast_intel.config import get_config
+from podcast_intel.models.database import Database
 
 
 def extract_segment_embedding(audio_path: str, start: float, end: float, sr: int = 16000) -> np.ndarray:
@@ -111,9 +111,9 @@ def diarize_episode(
         return {"error": "insufficient_segments"}
 
     # Normalize features
-    X = np.array(embeddings)
+    features = np.array(embeddings)
     scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    features_scaled = scaler.fit_transform(features)
 
     # Try Agglomerative Clustering (more robust for speaker diarization)
     clustering = AgglomerativeClustering(
@@ -121,10 +121,10 @@ def diarize_episode(
         metric="cosine",
         linkage="average",
     )
-    labels = clustering.fit_predict(X_scaled)
+    labels = clustering.fit_predict(features_scaled)
 
     # Compute silhouette score for quality assessment
-    sil_score = silhouette_score(X_scaled, labels, metric="cosine")
+    sil_score = silhouette_score(features_scaled, labels, metric="cosine")
     print(f"  Silhouette score: {sil_score:.3f} (>0.3 = good separation)")
 
     # Analyze clusters to assign speaker names
@@ -170,7 +170,7 @@ def diarize_episode(
 
     # Print results
     print(f"\n  Diarization complete in {elapsed:.0f}s")
-    print(f"  Speaker assignments:")
+    print("  Speaker assignments:")
     for cluster_label, stats in sorted_clusters:
         name = cluster_to_speaker[cluster_label]
         dur_min = stats["duration"] / 60
@@ -194,7 +194,7 @@ def diarize_episode(
     }
 
 
-def main():
+def main() -> None:
     """Diarize episodes from the database."""
     config = get_config()
     db = Database(config.db_path)

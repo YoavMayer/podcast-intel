@@ -15,27 +15,34 @@ Covers:
 - Episode status transitions (pending -> processing -> completed)
 """
 
-import pytest
-import sqlite3
 import re
+import sqlite3
+from datetime import datetime
 from pathlib import Path
-from datetime import datetime, timedelta
 
-from podcast_intel.models.database import Database
-from podcast_intel.models.schema import create_all_tables, get_table_names
+import pytest
+
 from podcast_intel.ingestion.mock_ingest import (
-    generate_mock_episodes,
     create_test_episode,
+    generate_mock_episodes,
 )
+from podcast_intel.models.database import Database
+from podcast_intel.models.schema import get_table_names
 from podcast_intel.transcription.mock_transcribe import (
-    MockTranscriber,
-    generate_mock_transcription,
-    _find_filler_words_in_text,
-    FILLER_WORDS_ALL,
-    SPEAKER_PROFILES,
+    ALL_TEMPLATES,
+    APPROACHES,
     ENGLISH_TERMS,
+    FILLER_WORDS_ALL,
+    METRICS,
+    ORGANIZATIONS,
+    PEOPLE,
+    ROLES,
+    TOPICS,
+    MockTranscriber,
+    _fill_template,
+    _find_filler_words_in_text,
+    generate_mock_transcription,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -638,20 +645,39 @@ class TestDataIntegrity:
                 )
 
     def test_language_check_constraint(self, db):
-        """Segment language must be he, en, or mixed."""
+        """
+        Segment language accepts any 2-10 character code.
+
+        The schema deliberately does NOT restrict the set to he/en/mixed: this
+        framework serves many podcasts in many languages. What it does enforce is
+        the length, which rejects an empty string or a prose sentence.
+        """
         with db.get_connection() as conn:
             eid = db.insert_episode(
                 conn, guid="lang-test", title="Lang",
                 pub_date="2024-01-01T00:00:00+00:00",
                 audio_url="https://example.com/lang.mp3",
             )
-        with pytest.raises(sqlite3.IntegrityError):
+
+        # Any plausible ISO code is accepted -- 'fr' is not special-cased away.
+        for code in ("he", "en", "mixed", "fr", "pt-BR"):
             with db.get_connection() as conn:
                 conn.execute(
                     """INSERT INTO segments (episode_id, start_time, end_time, text, language)
                        VALUES (?, ?, ?, ?, ?)""",
-                    (eid, 0.0, 1.0, "text", "fr"),
+                    (eid, 0.0, 1.0, "text", code),
                 )
+
+        # Out-of-range values are rejected.
+        for bad in ("", "x", "a-very-long-language-name"):
+            with pytest.raises(sqlite3.IntegrityError):
+                with db.get_connection() as conn:
+                    conn.execute(
+                        """INSERT INTO segments
+                           (episode_id, start_time, end_time, text, language)
+                           VALUES (?, ?, ?, ?, ?)""",
+                        (eid, 0.0, 1.0, "text", bad),
+                    )
 
     def test_entity_type_check_constraint(self, db):
         """Entity type must be one of the allowed values."""
@@ -771,6 +797,7 @@ class TestEpisodeStatusTransitions:
         with db.get_connection() as conn:
             ep_before = db.get_episode_by_id(conn, episode_ids[0])
             created_at = ep_before["created_at"]
+            updated_before = ep_before["updated_at"]
 
         # Transcribe
         generate_mock_transcription(db, episode_ids[0])
@@ -778,6 +805,9 @@ class TestEpisodeStatusTransitions:
         with db.get_connection() as conn:
             ep_after = db.get_episode_by_id(conn, episode_ids[0])
             assert ep_after["updated_at"] is not None
+            assert ep_after["updated_at"] >= updated_before
+            # created_at is immutable
+            assert ep_after["created_at"] == created_at
 
 
 # ===================================================================
@@ -816,8 +846,8 @@ class TestMockTranscriberGeneration:
         speakers_seen = {seg["speaker"] for seg in result.segments}
         assert len(speakers_seen) >= 2  # At minimum 2 speakers participate
 
-    def test_segments_contain_english_football_terms(self):
-        """At least some segments contain English football terminology."""
+    def test_segments_contain_english_domain_terms(self):
+        """At least some segments contain the corpus's English vocabulary."""
         t = MockTranscriber(num_speakers=3)
         result = t.transcribe(Path("fake.mp3"))
         has_english = False
@@ -828,7 +858,7 @@ class TestMockTranscriberGeneration:
                     break
             if has_english:
                 break
-        assert has_english, "No English football terms found in any segment"
+        assert has_english, "No English corpus terms found in any segment"
 
     def test_multiple_episodes_transcription(self, db_with_episodes):
         """Multiple episodes can each be transcribed independently."""
@@ -844,3 +874,72 @@ class TestMockTranscriberGeneration:
             for eid in episode_ids[:3]:
                 segs = db.get_segments_by_episode(conn, eid)
                 assert len(segs) > 0
+
+
+# ===================================================================
+# The mock corpus is the framework's shop window -- keep it neutral
+# ===================================================================
+
+#: Vocabulary that would make the demo corpus a football corpus again.
+SPORT_VOCABULARY = [
+    "Arsenal", "Chelsea", "Liverpool", "Manchester", "Premier League",
+    "xG", "VAR", "hat-trick", "penalty", "offside", "striker",
+    "goalkeeper", "winger", "midfield", "formation", "pitch",
+    "counter-attack", "clean sheet", "transfer window", "corner kick",
+    "set pieces", "lineup", "matchday", "the league",
+]
+
+
+class TestMockCorpusIsDomainNeutral:
+    """
+    ``podcast-intel mock`` is the README's 60-second demo.
+
+    Whatever this corpus talks about is what a stranger assumes the framework
+    is for, so it must belong to no domain -- and in particular must not name
+    real clubs, as it once did under a "Generic entities" header.
+    """
+
+    def test_no_sport_vocabulary_in_any_template(self):
+        """No template pool contains football language."""
+        offenders = [
+            (template, word)
+            for template in ALL_TEMPLATES
+            for word in SPORT_VOCABULARY
+            if word.lower() in template.lower()
+        ]
+        assert offenders == []
+
+    def test_no_sport_vocabulary_in_placeholder_entities(self):
+        """The fill-in entities name no real club and no playing position."""
+        entities = PEOPLE + ORGANIZATIONS + APPROACHES + ROLES + METRICS + TOPICS
+        offenders = [
+            (entity, word)
+            for entity in entities
+            for word in SPORT_VOCABULARY
+            if word.lower() in entity.lower()
+        ]
+        assert offenders == []
+
+    def test_no_sport_vocabulary_in_generated_segments(self):
+        """A generated transcript is football-free end to end."""
+        transcriber = MockTranscriber(num_speakers=3)
+        text = " ".join(
+            seg["text"] for seg in transcriber.transcribe(Path("fake.mp3")).segments
+        ).lower()
+        assert [word for word in SPORT_VOCABULARY if word.lower() in text] == []
+
+    def test_every_template_carries_a_corpus_term(self):
+        """
+        Every filled template contains a known term.
+
+        This is what makes the language and content assertions above
+        deterministic instead of dependent on which templates got drawn.
+        """
+        for template in ALL_TEMPLATES:
+            filled = _fill_template(template)
+            assert any(term in filled for term in ENGLISH_TERMS), template
+
+    def test_templates_leave_no_unfilled_placeholders(self):
+        """Every ``{placeholder}`` in the corpus has an entity list behind it."""
+        for template in ALL_TEMPLATES:
+            assert not re.search(r"\{[a-z_]+\}", _fill_template(template)), template

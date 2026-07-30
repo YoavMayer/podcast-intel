@@ -1,107 +1,110 @@
 """
 Filler word detection.
 
-Detects and counts filler words (e.g., "um", "like", "you know") in
-transcript segments using a curated dictionary and regex patterns.
+Detects and counts filler words (e.g. "um", "like", "you know", or the Hebrew
+"כאילו", "יעני") in transcript segments using a regex built from a language's
+filler lexicon.
+
+The lexicon is NOT hard-coded here. It comes from the language presets
+(``presets/{lang}.yaml``), so a filler list is written down exactly once and the
+same words drive both ``Config.filler_words`` and this module's defaults. Pass
+``language=`` to pick one, or ``filler_words=`` to supply your own.
 
 Tracks filler frequency and rate per speaker for coaching insights.
-The filler word list is configurable via language presets (see presets/).
 """
 
 import re
-from typing import List, Dict, Any, Tuple, Optional
 from collections import defaultdict
+from typing import Any
+
+from podcast_intel.presets import DEFAULT_LANGUAGE, has_preset, load_preset
 
 
-# Default English filler words and discourse markers.
-# For other languages, load filler lists from the preset YAML.
-DEFAULT_FILLERS = [
-    "um", "uh", "uh huh",
-    "like",
-    "you know",
-    "I mean",
-    "basically",
-    "right?",
-    "so",
-    "well",
-    "okay", "ok",
-    "actually",
-    "literally",
-    "kind of", "kinda",
-    "sort of", "sorta",
-    "honestly",
-    "I guess",
-    "whatever",
-]
-
-# Hebrew filler words (mirrored from presets/hebrew.yaml).
-HEBREW_FILLERS = [
-    "\u05d0\u05de\u05de",       # ammm
-    "\u05d0\u05d4\u05d4\u05d4", # ahhh
-    "\u05db\u05d0\u05d9\u05dc\u05d5", # ke'ilu
-    "\u05e0\u05d5",             # nu
-    "\u05d9\u05e2\u05e0\u05d9", # ya'ani
-    "\u05d1\u05d2\u05d3\u05d5\u05dc", # begadol
-    "\u05d1\u05e7\u05d9\u05e6\u05d5\u05e8", # bekitzur
-    "\u05e0\u05db\u05d5\u05df?", # nakhon?
-    "\u05d0\u05d6",             # az
-    "\u05d8\u05d5\u05d1",       # tov
-    "\u05d0\u05d5\u05e7\u05d9\u05d9", # okay
-    "\u05e9\u05de\u05e2",       # shma
-    "\u05d1\u05e2\u05e6\u05dd", # be'etzem
-    "\u05ea\u05e8\u05d0\u05d4", # tir'eh
-    "\u05e4\u05e9\u05d5\u05d8", # pashut
-]
-
-
-def get_default_fillers(language: str = "en") -> List[str]:
-    """Return the default filler word list for a given language.
+def get_default_fillers(language: str | None = None) -> list[str]:
+    """Return the filler lexicon for a language, from its preset.
 
     Args:
-        language: ISO language code ("en" for English, "he" for Hebrew).
+        language: ISO 639-1 code, e.g. ``"he"`` or ``"en"``. ``None`` -- and any
+            language with no shipped preset -- uses
+            :data:`~podcast_intel.presets.DEFAULT_LANGUAGE`.
 
     Returns:
-        List of filler word strings.
+        List of filler word strings. A fresh list each call, so callers may
+        mutate it.
+
+    Example:
+        >>> "כאילו" in get_default_fillers("he")
+        True
+        >>> "um" in get_default_fillers("en")
+        True
     """
-    if language == "he":
-        return list(HEBREW_FILLERS)
-    # Default to English for any unrecognised language code.
-    return list(DEFAULT_FILLERS)
+    code = language if language and has_preset(language) else DEFAULT_LANGUAGE
+    words = load_preset(code).get("filler_words") or []
+    return [str(word) for word in words]
 
 
-def build_filler_pattern(filler_words: List[str]) -> re.Pattern:
+def _is_word_char(char: str) -> bool:
+    """True if ``char`` is a regex word character (Unicode-aware, so Hebrew counts)."""
+    return bool(char) and (char.isalnum() or char == "_")
+
+
+def _bounded(filler: str) -> str:
+    """Escape one filler and add ``\\b`` only on the ends where it can match.
+
+    ``\\b`` sits between a word character and a non-word character. Wrapping the
+    whole alternation in ``\\b...\\b`` therefore made every filler that starts or
+    ends in punctuation unmatchable: after the ``?`` of ``"right?"`` (or of the
+    Hebrew ``"נכון?"``) the next character is a space, so both sides are
+    non-word and the boundary can never hold. Those fillers were silently dead.
+
+    Args:
+        filler: A raw filler string.
+
+    Returns:
+        A regex fragment matching that filler with boundaries where they apply.
+    """
+    prefix = r"\b" if _is_word_char(filler[:1]) else ""
+    suffix = r"\b" if _is_word_char(filler[-1:]) else ""
+    return f"{prefix}{re.escape(filler)}{suffix}"
+
+
+def build_filler_pattern(filler_words: list[str]) -> re.Pattern:
     """Build a compiled regex pattern for filler detection.
 
     Multi-word fillers are sorted longest-first so that greedy alternation
     matches the longest candidate before falling back to shorter ones.
-    Word boundaries (``\\b``) are used on both sides to avoid partial
-    matches inside longer words.
+    Word boundaries are applied per filler rather than around the whole
+    alternation -- see :func:`_bounded` for why that distinction is load-bearing.
 
     Args:
         filler_words: List of filler word strings to match.
 
     Returns:
-        Compiled case-insensitive regex pattern.
+        Compiled case-insensitive regex pattern. Matches nothing if the list is
+        empty.
     """
     # Sort by length descending so multi-word fillers match first.
     sorted_fillers = sorted(filler_words, key=len, reverse=True)
-    # Escape each filler for regex safety, then join with alternation.
-    escaped = [re.escape(f) for f in sorted_fillers]
-    # Use word boundaries to avoid matching inside other words.
-    combined = "|".join(escaped)
-    pattern = re.compile(rf"\b(?:{combined})\b", re.IGNORECASE)
-    return pattern
+    if not sorted_fillers:
+        # An empty alternation would compile to a pattern matching everywhere.
+        return re.compile(r"(?!)")
+    combined = "|".join(_bounded(f) for f in sorted_fillers)
+    return re.compile(f"(?:{combined})", re.IGNORECASE)
 
 
 def detect_fillers_in_text(
     text: str,
-    filler_words: Optional[List[str]] = None,
-) -> List[Dict[str, Any]]:
+    filler_words: list[str] | None = None,
+    language: str | None = None,
+) -> list[dict[str, Any]]:
     """Find all filler word occurrences in *text*.
 
     Args:
         text: The transcript text to scan.
-        filler_words: Custom filler list. Defaults to English fillers.
+        filler_words: Custom filler list. When omitted, the lexicon for
+            *language* is used.
+        language: ISO 639-1 code selecting the preset lexicon. Defaults to
+            :data:`~podcast_intel.presets.DEFAULT_LANGUAGE`.
 
     Returns:
         List of dicts with keys ``word``, ``start_pos``, ``end_pos``.
@@ -110,10 +113,10 @@ def detect_fillers_in_text(
         return []
 
     if filler_words is None:
-        filler_words = get_default_fillers("en")
+        filler_words = get_default_fillers(language)
 
     pattern = build_filler_pattern(filler_words)
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for match in pattern.finditer(text):
         results.append({
             "word": match.group().lower(),
@@ -125,19 +128,22 @@ def detect_fillers_in_text(
 
 def count_fillers_in_text(
     text: str,
-    filler_words: Optional[List[str]] = None,
-) -> Dict[str, int]:
+    filler_words: list[str] | None = None,
+    language: str | None = None,
+) -> dict[str, int]:
     """Count each filler word's occurrences in *text*.
 
     Args:
         text: Transcript text.
-        filler_words: Custom filler list. Defaults to English fillers.
+        filler_words: Custom filler list. When omitted, the lexicon for
+            *language* is used.
+        language: ISO 639-1 code selecting the preset lexicon.
 
     Returns:
         Dictionary mapping each found filler word (lower-cased) to its count.
     """
-    hits = detect_fillers_in_text(text, filler_words)
-    counts: Dict[str, int] = defaultdict(int)
+    hits = detect_fillers_in_text(text, filler_words, language)
+    counts: dict[str, int] = defaultdict(int)
     for hit in hits:
         counts[hit["word"]] += 1
     return dict(counts)
@@ -159,14 +165,22 @@ def compute_filler_rate(filler_count: int, duration_seconds: float) -> float:
 
 
 def detect_fillers(
-    segments: List[Dict[str, Any]],
-) -> Dict[str, Dict[str, Any]]:
+    segments: list[dict[str, Any]],
+    filler_words: list[str] | None = None,
+    language: str | None = None,
+) -> dict[str, dict[str, Any]]:
     """Detect filler words across all segments and aggregate per speaker.
 
     Args:
         segments: List of transcript segments. Each segment must have
             ``speaker`` (str), ``text`` (str), ``start`` (float), and
             ``end`` (float) keys.
+        filler_words: Custom filler list, e.g. ``get_config().filler_words``.
+            When omitted, the lexicon for *language* is used.
+        language: ISO 639-1 code selecting the preset lexicon. Defaults to
+            :data:`~podcast_intel.presets.DEFAULT_LANGUAGE`. Before this
+            parameter existed the function always scanned with the English
+            list, so a Hebrew episode scored zero fillers.
 
     Returns:
         Dictionary mapping speaker name to a dict with:
@@ -176,11 +190,14 @@ def detect_fillers(
         - ``occurrences``: list of individual filler hits
 
     Example:
-        >>> fillers = detect_fillers(segments)
-        >>> print(fillers["Host"]["total_fillers"])
-        >>> print(fillers["Host"]["filler_rate"])
+        >>> fillers = detect_fillers(segments, language="he")  # doctest: +SKIP
+        >>> print(fillers["Host"]["total_fillers"])            # doctest: +SKIP
+        >>> print(fillers["Host"]["filler_rate"])              # doctest: +SKIP
     """
-    speaker_data: Dict[str, Dict[str, Any]] = {}
+    if filler_words is None:
+        filler_words = get_default_fillers(language)
+
+    speaker_data: dict[str, dict[str, Any]] = {}
 
     for seg in segments:
         speaker = seg.get("speaker", "unknown")
@@ -197,7 +214,7 @@ def detect_fillers(
                 "_total_duration": 0.0,
             }
 
-        hits = detect_fillers_in_text(text)
+        hits = detect_fillers_in_text(text, filler_words)
         for hit in hits:
             speaker_data[speaker]["total_fillers"] += 1
             speaker_data[speaker]["filler_counts"][hit["word"]] += 1
@@ -219,7 +236,10 @@ def detect_fillers(
     return speaker_data
 
 
-def extract_filler_positions(text: str) -> List[Tuple[str, int]]:
+def extract_filler_positions(
+    text: str,
+    language: str | None = None,
+) -> list[tuple[str, int]]:
     """Extract filler words with their character positions.
 
     This mirrors the behaviour of the reference implementation in
@@ -228,9 +248,10 @@ def extract_filler_positions(text: str) -> List[Tuple[str, int]]:
 
     Args:
         text: Transcript text.
+        language: ISO 639-1 code selecting the preset lexicon.
 
     Returns:
         List of ``(filler_text, position)`` tuples.
     """
-    hits = detect_fillers_in_text(text)
+    hits = detect_fillers_in_text(text, language=language)
     return [(h["word"], h["start_pos"]) for h in hits]

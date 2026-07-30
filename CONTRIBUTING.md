@@ -11,7 +11,6 @@ Thank you for your interest in contributing to podcast-intel! This document prov
 - [Code Style](#code-style)
 - [Pull Request Process](#pull-request-process)
 - [Adding Language Presets](#adding-language-presets)
-- [Creating Specializations](#creating-specializations)
 - [Release Process](#release-process)
 
 ## Code of Conduct
@@ -35,7 +34,7 @@ This project adheres to a code of conduct that we expect all contributors to fol
 
 ```bash
 # Clone the repository
-git clone https://github.com/podcast-intel/podcast-intel.git
+git clone https://github.com/YoavMayer/podcast-intel.git
 cd podcast-intel
 
 # Create a virtual environment
@@ -49,6 +48,20 @@ source .venv/bin/activate
 
 # Install in development mode with all dependencies
 pip install -e ".[dev,all]"
+
+# Install the data-leakage pre-commit hook (required -- this repo is public)
+pip install pre-commit
+pre-commit install
+```
+
+### The data-leakage gate
+
+`scripts/check-no-leak.sh` scans the **tracked** tree for private show strings, roster
+names, episode media/transcripts and credentials, and fails the commit and CI if it finds
+any. Run it by hand at any time:
+
+```bash
+bash scripts/check-no-leak.sh
 ```
 
 ### Environment Variables
@@ -60,12 +73,9 @@ Create a `.env` file in the project root for local development:
 PODCAST_INTEL_DB_PATH=/custom/path/podcast_intel.db
 PODCAST_INTEL_AUDIO_DIR=/custom/path/audio
 
-# Required for diarization
+# Optional: only needed by tools/diarize_episode.py (the PyAnnote script).
+# The packaged diarizer needs no token.
 PODCAST_INTEL_HUGGINGFACE_TOKEN=hf_xxxxxxxxxxxxx
-
-# Optional: LLM API keys for coaching features
-PODCAST_INTEL_LLM_PROVIDER=openai
-PODCAST_INTEL_LLM_API_KEY=sk-xxxxxxxxxxxxx
 ```
 
 ### Verify Installation
@@ -89,13 +99,8 @@ podcast-intel/
 │   ├── analysis/               # Analysis pipeline
 │   │   ├── filler_detector.py  # Filler word detection
 │   │   ├── metrics.py          # Metric computation
-│   │   ├── ner_pipeline.py     # Named entity recognition
 │   │   ├── scorer.py           # PQS v3 scoring
-│   │   ├── sentiment.py        # Sentiment analysis
 │   │   └── silence_analyzer.py # Silence detection
-│   ├── coaching/               # Speaker coaching
-│   │   ├── coach.py            # Coaching engine
-│   │   └── interruptions.py    # Interruption detection
 │   ├── ingestion/              # Data ingestion
 │   │   ├── downloader.py       # Audio downloader
 │   │   ├── rss_parser.py       # RSS feed parser
@@ -107,12 +112,9 @@ podcast-intel/
 │   ├── presets/                # Language presets
 │   │   ├── english.yaml
 │   │   └── hebrew.yaml
-│   ├── search/                 # Semantic search
-│   │   ├── embedder.py         # Embedding generation
-│   │   ├── query.py            # Query interface
-│   │   └── vector_store.py     # ChromaDB integration
+│   ├── triggers/               # RSS watcher, community events, briefings
 │   └── transcription/          # Transcription pipeline
-│       ├── diarize.py          # Speaker diarization
+│       ├── diarize.py          # Speaker diarization (MFCC + spectral clustering)
 │       ├── transcribe.py       # Transcription interface
 │       ├── whisper_transcriber.py  # Whisper implementation
 │       └── mock_transcribe.py  # Mock transcriber
@@ -123,9 +125,19 @@ podcast-intel/
 │   ├── diarize_episode.py
 │   ├── merge_diarization.py
 │   └── text_based_diarization.py
+├── scripts/                    # Repo gates
+│   └── check-no-leak.sh        # Data-leakage check (CI + pre-commit)
 ├── tests/                      # Test suite
 │   ├── conftest.py             # Pytest fixtures
-│   └── test_mock_system.py     # Integration tests
+│   ├── test_community_events.py
+│   ├── test_downloader.py
+│   ├── test_fixtures.py        # conftest fixtures are real, not placeholders
+│   ├── test_football_provider.py
+│   ├── test_lazy_imports.py    # Core install must not import optional extras
+│   ├── test_mock_system.py     # Integration tests
+│   ├── test_presets.py         # Preset loader + config precedence
+│   ├── test_rss_watcher.py
+│   └── test_scorer.py
 ├── examples/                   # Example configurations
 │   └── quickstart/
 │       └── podcast.yaml
@@ -171,14 +183,16 @@ Example test:
 
 ```python
 def test_filler_detection():
-    from podcast_intel.analysis.filler_detector import FillerDetector
+    from podcast_intel.analysis.filler_detector import (
+        detect_fillers_in_text,
+        get_default_fillers,
+    )
 
-    detector = FillerDetector(language="en")
     text = "Um, like, I think, you know, it's basically great."
+    fillers = detect_fillers_in_text(text, get_default_fillers("en"))
 
-    fillers = detector.detect(text)
     assert len(fillers) > 0
-    assert any(f.word == "um" for f in fillers)
+    assert any(f["word"] == "um" for f in fillers)
 ```
 
 ## Code Style
@@ -292,6 +306,12 @@ def compute_pqs_score(
 ## Adding Language Presets
 
 Language presets configure NLP models and filler words for different languages.
+They are the per-**language** default layer; `podcast.yaml` is the per-**show**
+layer and overrides them. `get_config()` merges
+`defaults < preset < podcast.yaml < environment` -- see
+[docs/CONFIGURATION.md](docs/CONFIGURATION.md#configuration-precedence).
+
+Two presets ship today: `en` (`english.yaml`) and `he` (`hebrew.yaml`).
 
 ### Create a New Preset
 
@@ -326,6 +346,10 @@ AVAILABLE_PRESETS = {
 }
 ```
 
+   `AVAILABLE_PRESETS` is what `load_preset()` and `has_preset()` consult, and
+   `tests/test_presets.py::test_every_declared_preset_actually_loads` fails if a
+   declared preset has no file.
+
 3. Add tests in `tests/test_presets.py`:
 
 ```python
@@ -333,9 +357,14 @@ def test_spanish_preset():
     preset = load_preset("es")
     assert preset["language"] == "es"
     assert "eh" in preset["filler_words"]
+
+
+def test_spanish_resolves_through_get_config(tmp_path):
+    project = write_podcast_yaml(tmp_path, 'podcast:\n  language: "es"\n')
+    assert get_config(search_dir=project).sentiment_model.startswith("finiteautomata/")
 ```
 
-4. Update documentation in `docs/CONFIGURATION.md`
+4. Update documentation in `docs/CONFIGURATION.md` (the Available Presets table)
 
 ### Guidelines for Language Presets
 
@@ -343,85 +372,30 @@ def test_spanish_preset():
 - Include 10-20 common filler words
 - Test transcription quality on sample audio
 - Document any special requirements (e.g., RTL text)
-
-## Creating Specializations
-
-Specializations are domain-specific configurations for podcasts (e.g., sports, tech, finance).
-
-### Example: Sports Podcast Specialization
-
-```
-examples/sports-podcast/
-├── podcast.yaml           # Base config
-├── speakers.yaml          # Speaker profiles
-├── entities.yaml          # Sports-specific entities
-└── scoring_weights.yaml   # Custom PQS weights
-```
-
-**speakers.yaml:**
-```yaml
-speakers:
-  - id: host
-    name: "John Smith"
-    role: host
-    expertise: ["soccer", "basketball"]
-
-  - id: analyst
-    name: "Maria Garcia"
-    role: analyst
-    expertise: ["statistics", "tactics"]
-```
-
-**entities.yaml:**
-```yaml
-entity_categories:
-  teams:
-    - "Manchester United"
-    - "Real Madrid"
-    - "Barcelona"
-
-  players:
-    - "Lionel Messi"
-    - "Cristiano Ronaldo"
-
-  leagues:
-    - "Premier League"
-    - "La Liga"
-```
-
-**scoring_weights.yaml:**
-```yaml
-# Custom PQS weights for sports podcasts
-domain_weights:
-  audio: 0.10
-  delivery: 0.20
-  structure: 0.20
-  content: 0.30      # Higher weight on content for sports analysis
-  engagement: 0.20
-```
-
-### Testing Specializations
-
-Create example podcasts in `examples/` and ensure they work end-to-end.
+- The YAML ships via `[tool.setuptools.package-data]` in `pyproject.toml`; it is
+  read with `importlib.resources`, so never open it by filesystem path
 
 ## Release Process
 
-Maintainers follow this process for releases:
+Maintainers: the full procedure, including the one-time PyPI trusted-publisher
+setup, is in [docs/RELEASING.md](docs/RELEASING.md). In short:
 
-1. Update version in `pyproject.toml`
+1. Update the version in **both** `pyproject.toml` and
+   `src/podcast_intel/__init__.py` -- the release workflow fails if they or the
+   tag disagree
 2. Update `CHANGELOG.md` with release notes
-3. Create a git tag: `git tag v0.2.0`
-4. Push tag: `git push origin v0.2.0`
-5. Build and publish to PyPI:
-   ```bash
-   python -m build
-   twine upload dist/*
-   ```
+3. Push the commit, then tag and push the tag: `git tag -a vX.Y.Z -m "Release
+   vX.Y.Z" && git push origin vX.Y.Z`
+
+The tag push runs `.github/workflows/release.yml`, which builds the sdist and
+wheel and publishes them to PyPI over OIDC. Nobody uploads by hand and there is
+no PyPI token to hold.
 
 ## Questions?
 
 - Open an issue for bugs or feature requests
 - Start a discussion for questions or ideas
-- Join our community chat (link TBD)
+
+There is no community chat.
 
 Thank you for contributing to podcast-intel!

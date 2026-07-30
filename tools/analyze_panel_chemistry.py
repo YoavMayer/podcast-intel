@@ -22,10 +22,9 @@ Usage:
 
 import argparse
 import json
-import os
+import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REPORTS_DIR = PROJECT_ROOT / "reports"
@@ -37,7 +36,7 @@ def _load_config() -> dict:
     if config_path.exists():
         try:
             import yaml
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}
         except ImportError:
             pass
@@ -47,9 +46,9 @@ def _load_config() -> dict:
 def load_json(path: str) -> dict | None:
     """Load a JSON file, return None if missing."""
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
+    except (FileNotFoundError, json.JSONDecodeError):
         return None
 
 
@@ -104,12 +103,6 @@ def discover_episodes(reports_dir: Path) -> dict[int, dict]:
         dia_summary = load_json(str(ep_dir / "diarization" / "diarization_summary.json"))
         n_speakers = dia_summary.get("n_speakers", 0) if dia_summary else 0
         speaker_names = list(dia_summary.get("speaker_name_map", {}).values()) if dia_summary else []
-
-        # Load engagement metrics
-        eng_data = load_json(str(ep_dir / "engagement_metrics.json"))
-
-        # Load delivery metrics
-        del_data = load_json(str(ep_dir / "delivery_metrics.json"))
 
         # Determine scores from components
         audio = 0.0
@@ -348,7 +341,7 @@ def generate_html_report(report: dict, episodes: dict) -> str:
 
     config = _load_config()
     podcast_name = config.get("podcast_name", "Podcast")
-    accent_color = config.get("branding", {}).get("accent_color", "#132257")
+    accent_color = config.get("branding", {}).get("accent_color", "#1a1a2e")
 
     def bar(value, max_val=100, color="#4CAF50"):
         width = min(value / max_val * 100, 100)

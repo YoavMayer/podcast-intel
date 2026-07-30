@@ -4,38 +4,37 @@ Open-source podcast analysis and quality scoring framework. Automatically transc
 
 ## Features
 
-- **Podcast Quality Score (PQS)** - Comprehensive 5-domain scoring framework (Audio, Delivery, Structure, Content, Engagement) with 39 sub-metrics
+- **Podcast Quality Score (PQS)** - Comprehensive 5-domain scoring framework (Audio, Delivery, Structure, Content, Engagement) with 37 sub-metrics
 - **Panel Chemistry Analysis** - Speaker balance, interaction patterns, energy tracking, and interruption detection
-- **Automated Transcription** - Whisper-powered transcription with speaker diarization using PyAnnote
+- **Automated Transcription** - Whisper-powered transcription with MFCC + spectral-clustering speaker diarization (CPU)
 - **Topic Inventory** - Extract and categorize discussion topics with LLM-powered analysis
 - **Highlight Extraction** - Automatically find the best moments in each episode
-- **Coaching Notes** - Per-speaker feedback and improvement suggestions
 - **Multi-language Support** - English, Hebrew, and more via language presets
 - **RSS Automation** - Watch feeds for new episodes, auto-trigger pipelines
 - **Beautiful Reports** - Self-contained HTML reports with charts and interactive insights
 
 ### Feature Status
 
-> v0.1.0 is an early release. Some modules are production-ready, others are in active development.
+> v0.4.0 is an early release. Some modules are production-ready, others are in active development.
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| PQS v3 scoring engine | **Complete** | 5 domains, 39 sub-metrics, fully calibrated |
+| PQS v3 scoring engine | **Complete** | 5 domains, 37 sub-metrics, fully calibrated |
 | SQLite database + models | **Complete** | 10-table schema with Pydantic validation |
 | RSS ingestion | **Complete** | Feed parsing, metadata extraction, download |
 | Mock data system | **Complete** | Full synthetic episodes for testing |
 | CLI (`ingest`, `mock`, `watch`, `events`) | **Complete** | Core commands working |
 | Whisper transcription | **Complete** | faster-whisper with GPU/CPU fallback |
-| Speaker diarization | **Complete** | PyAnnote-based speaker separation |
-| NER pipeline | **Complete** | BERT-based entity extraction |
-| Sentiment analysis | **Complete** | RoBERTa-based per-segment scoring |
+| Speaker diarization | **Complete** | MFCC + spectral clustering (CPU); no PyAnnote required |
+| NER pipeline | **Planned** | Not implemented in the package |
+| Sentiment analysis | **Planned** | Not implemented in the package |
 | Filler word detection | **Functional** | Regex-based detection with language support |
 | Silence analysis | **Functional** | Gap detection, micro-pause, dead-air metrics |
 | Episode metrics | **Functional** | Talk time, pace, word counts |
 | HTML report generation | **Partial** | Available via `tools/` scripts |
-| CLI (`transcribe`, `analyze`, `report`) | **Planned** | Use `tools/run_episode_analysis.py` directly |
-| Semantic search | **Planned** | ChromaDB integration in progress |
-| Coaching notes | **Planned** | LLM-powered speaker feedback |
+| Unified `transcribe`/`analyze`/`report` CLI | **Planned** | Use `tools/run_episode_analysis.py` directly |
+| Semantic search | **Planned** | Not implemented; no code ships today |
+| Coaching notes | **Planned** | Not implemented; no code ships today |
 
 ## Quick Start
 
@@ -44,7 +43,7 @@ Open-source podcast analysis and quality scoring framework. Automatically transc
 No API keys, no GPU, no audio files needed -- generate a full synthetic episode with mock data:
 
 ```bash
-pip install podcast-intel
+pip install git+https://github.com/YoavMayer/podcast-intel.git
 podcast-intel mock
 ```
 
@@ -52,15 +51,44 @@ This creates a complete mock episode in your database with realistic transcript 
 
 ### Installation
 
+Not yet published to PyPI -- install from source:
+
+```bash
+pip install git+https://github.com/YoavMayer/podcast-intel.git
+
+# With transcription support (GPU recommended):
+pip install "podcast-intel[transcription] @ git+https://github.com/YoavMayer/podcast-intel.git"
+
+# With all features:
+pip install "podcast-intel[all] @ git+https://github.com/YoavMayer/podcast-intel.git"
+```
+
+<!--
+PENDING FIRST PYPI RELEASE -- do not enable before the release actually lands.
+The name podcast-intel is unclaimed until the first upload succeeds, so
+`pip install podcast-intel` currently 404s. See docs/RELEASING.md step 4.
+
+Once https://pypi.org/project/podcast-intel/ resolves, replace the block above
+with the block below, replace the git install in "Try It in 60 Seconds" with
+`pip install podcast-intel`, and delete this comment.
+
 ```bash
 pip install podcast-intel
 
-# With transcription support (requires GPU recommended):
-pip install podcast-intel[transcription]
+# With transcription support (GPU recommended):
+pip install "podcast-intel[transcription]"
 
 # With all features:
-pip install podcast-intel[all]
+pip install "podcast-intel[all]"
 ```
+
+Installing from source stays available:
+
+```bash
+pip install git+https://github.com/YoavMayer/podcast-intel.git
+```
+-->
+
 
 ### Set Up Your Podcast
 
@@ -96,8 +124,8 @@ python tools/run_episode_analysis.py 42
 ### View Results
 
 Reports are generated in `reports/episode_42/` with:
-- `pqs_v3_scores.json` - Full quality scores across 5 domains and 39 sub-metrics
-- `one_pager.html` - Mobile-first pre-recording brief with coaching notes
+- `pqs_v3_scores.json` - Full quality scores across 5 domains and 37 sub-metrics
+- `one_pager.html` - Mobile-first pre-recording brief with score trends
 - `panel_chemistry.html` - Speaker dynamics and interactions
 - `transcript.json` - Full timestamped transcript with speaker labels
 
@@ -116,24 +144,21 @@ podcast-intel ships with language presets that configure the right NLP models:
 | English (default) | whisper-large-v3-turbo | bert-base-NER | roberta-sentiment |
 | Hebrew | ivrit-ai/whisper-large-v3-turbo | DictaBERT-NER | heBERT |
 
-To use a preset:
+To use a preset, set the language in `podcast.yaml` -- nothing else is required:
 
 ```yaml
 podcast:
-  language: "he"  # Uses Hebrew preset automatically
+  language: "he"  # get_config() resolves the Hebrew models and filler lexicon
 ```
 
-### Advanced: Specialization System
+`get_config()` layers `defaults < preset < podcast.yaml < environment`; a language
+with no shipped preset falls back to the defaults rather than erroring. Only `en`
+and `he` ship today -- see
+[CONTRIBUTING.md](CONTRIBUTING.md#adding-language-presets) to add one.
 
-For advanced users, podcast-intel supports specialization configs for domain-specific customization:
-
-```
-my-podcast/
-├── podcast.yaml         # Core config
-├── speakers.yaml        # Detailed speaker profiles
-├── entities.yaml        # Domain-specific entities (e.g., sports teams, tech companies)
-└── scoring_weights.yaml # Custom PQS weights
-```
+`podcast.yaml` is the one user-facing configuration file. There is no
+`speakers.yaml` / `entities.yaml` / `scoring_weights.yaml` mechanism -- no packaged
+code reads those filenames.
 
 See [examples/](examples/) for sample configurations.
 
@@ -144,10 +169,11 @@ podcast-intel/
 ├── src/podcast_intel/
 │   ├── ingestion/       # RSS parsing, audio download
 │   ├── transcription/   # Whisper transcription, speaker diarization
-│   ├── analysis/        # PQS scoring, NER, sentiment, filler detection
-│   ├── coaching/        # Speaker coaching and improvement insights
-│   ├── search/          # Semantic search across episodes
+│   ├── analysis/        # PQS scoring, filler detection, silence analysis
+│   ├── triggers/        # RSS watcher, community events, briefing generator
+│   ├── presets/         # Per-language model/lexicon presets
 │   └── models/          # Data models and SQLite database
+├── scripts/             # Repo gates (data-leakage check)
 ├── tools/               # Standalone analysis scripts
 ├── examples/            # Example configurations
 ├── tests/               # Test suite
@@ -157,11 +183,9 @@ podcast-intel/
 ### Key Components
 
 - **Ingestion**: Fetch RSS feeds, download MP3 files, extract metadata
-- **Transcription**: Whisper-based speech-to-text with PyAnnote diarization
-- **Analysis**: Multi-model NLP pipeline (NER, sentiment, filler detection, silence analysis)
-- **Scoring**: PQS v3 framework with 5 domains and 39 sub-metrics
-- **Coaching**: LLM-powered per-speaker feedback and improvement suggestions
-- **Search**: Semantic search using sentence embeddings and ChromaDB
+- **Transcription**: Whisper-based speech-to-text with MFCC + spectral-clustering diarization
+- **Analysis**: Filler detection, silence analysis, episode metrics
+- **Scoring**: PQS v3 framework with 5 domains and 37 sub-metrics
 
 ## Podcast Quality Score (PQS) v3
 
@@ -213,7 +237,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
 ```bash
 # Clone the repository
-git clone https://github.com/podcast-intel/podcast-intel.git
+git clone https://github.com/YoavMayer/podcast-intel.git
 cd podcast-intel
 
 # Create virtual environment
@@ -268,7 +292,7 @@ speakers:
 
 - **Podcast Hosts**: Get actionable feedback to improve episode quality
 - **Producers**: Track quality metrics over time, identify improvement opportunities
-- **Researchers**: Analyze podcast corpora at scale with semantic search
+- **Researchers**: Analyze podcast corpora at scale with a scriptable scoring engine
 - **Educators**: Study conversational dynamics and speaking patterns
 - **Content Teams**: Benchmark episodes, extract highlights for social media
 
@@ -276,7 +300,8 @@ speakers:
 
 - Python 3.10+
 - For transcription: CUDA-compatible GPU recommended (CPU fallback available)
-- For diarization: Hugging Face token (free signup at hf.co)
+- For diarization: no token needed -- the packaged diarizer is MFCC + spectral clustering on CPU
+  (`librosa`, `soundfile`, `scikit-learn`, installed by the `transcription` extra)
 
 ## Roadmap
 
@@ -305,19 +330,18 @@ If you use podcast-intel in your research, please cite:
   title = {podcast-intel: Open-source podcast analysis and quality scoring framework},
   author = {Podcast Intel Contributors},
   year = {2026},
-  url = {https://github.com/podcast-intel/podcast-intel}
+  url = {https://github.com/YoavMayer/podcast-intel}
 }
 ```
 
 ## Acknowledgments
 
 Built with:
-- [Whisper](https://github.com/openai/whisper) for transcription
-- [PyAnnote](https://github.com/pyannote/pyannote-audio) for speaker diarization
+- [Whisper](https://github.com/openai/whisper) / [faster-whisper](https://github.com/SYSTRAN/faster-whisper) for transcription
+- [librosa](https://librosa.org/) and [scikit-learn](https://scikit-learn.org/) for speaker diarization
 - [Transformers](https://github.com/huggingface/transformers) for NLP models
-- [ChromaDB](https://github.com/chroma-core/chroma) for vector search
 
 ## Support
 
-- GitHub Issues: [https://github.com/podcast-intel/podcast-intel/issues](https://github.com/podcast-intel/podcast-intel/issues)
-- Discussions: [https://github.com/podcast-intel/podcast-intel/discussions](https://github.com/podcast-intel/podcast-intel/discussions)
+- GitHub Issues: [https://github.com/YoavMayer/podcast-intel/issues](https://github.com/YoavMayer/podcast-intel/issues)
+- Discussions: [https://github.com/YoavMayer/podcast-intel/discussions](https://github.com/YoavMayer/podcast-intel/discussions)

@@ -15,7 +15,6 @@ Output: reports/one_pagers/pre_recording_brief_ep{N}.html
 
 import argparse
 import json
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -35,7 +34,7 @@ def _load_config() -> dict:
     if config_path.exists():
         try:
             import yaml
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}
         except ImportError:
             pass
@@ -104,7 +103,7 @@ def load_pqs_data(episode_num: int) -> dict | None:
     scores_file = ep_dir / "pqs_v3_scores.json"
     if not scores_file.exists():
         return None
-    with open(scores_file, "r", encoding="utf-8") as f:
+    with open(scores_file, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -269,7 +268,7 @@ def generate_fix_items(data: dict) -> list[dict]:
         fixes.append({
             "priority": "yellow",
             "icon": "\U0001F7E1",
-            "text": f"<strong>Fillers:</strong> Reduce 'um', 'like', 'you know'. Replace with a short pause -- it sounds more confident."
+            "text": "<strong>Fillers:</strong> Reduce 'um', 'like', 'you know'. Replace with a short pause -- it sounds more confident."
         })
 
     # Structure check
@@ -379,7 +378,7 @@ def generate_html(
     trend_data: list[tuple[int, float]],
     recording_date: str,
     podcast_name: str = "Podcast",
-    accent_color: str = "#132257",
+    accent_color: str = "#1a1a2e",
 ) -> str:
     """Generate the full one-pager HTML string."""
 
@@ -779,7 +778,7 @@ def main():
     # Load config
     config = _load_config()
     podcast_name = config.get("podcast_name", "Podcast")
-    accent_color = config.get("branding", {}).get("accent_color", "#132257")
+    accent_color = config.get("branding", {}).get("accent_color", "#1a1a2e")
 
     # Load previous episode data
     prev_data = load_pqs_data(prev_episode)

@@ -8,21 +8,21 @@ Default model is "small" (suitable for CPU). For GPU setups, configure
 a larger model in podcast.yaml (e.g., "openai/whisper-large-v3-turbo").
 """
 
-import time
-import re
 import sys
-import requests
+import time
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Any
 
+import requests
 from faster_whisper import WhisperModel
 
+from podcast_intel.config import get_config
+from podcast_intel.models.database import Database
+from podcast_intel.presets import DEFAULT_LANGUAGE
 from podcast_intel.transcription.transcribe import (
     TranscriptionInterface,
     TranscriptionResult,
 )
-from podcast_intel.models.database import Database
-from podcast_intel.config import get_config
 
 
 def detect_language(text: str) -> str:
@@ -75,7 +75,7 @@ class WhisperTranscriber(TranscriptionInterface):
     def transcribe(
         self,
         audio_path: Path,
-        language: str = "en",
+        language: str = DEFAULT_LANGUAGE,
         diarize: bool = True,
     ) -> TranscriptionResult:
         model = self._get_model()
@@ -115,7 +115,7 @@ class WhisperTranscriber(TranscriptionInterface):
             duration=info.duration,
         )
 
-    def get_word_timestamps(self, audio_path: Path) -> List[Dict[str, Any]]:
+    def get_word_timestamps(self, audio_path: Path) -> list[dict[str, Any]]:
         result = self.transcribe(audio_path)
         words = []
         for seg in result.segments:
@@ -178,7 +178,7 @@ def transcribe_episode(
                 )
 
             # Insert segment
-            seg_id = db.insert_segment(
+            db.insert_segment(
                 conn,
                 episode_id=episode_id,
                 start_time=seg["start"],
@@ -212,7 +212,7 @@ def transcribe_episode(
         "model_size": model_size,
     }
 
-    print(f"\nTranscription complete!")
+    print("\nTranscription complete!")
     print(f"  Segments: {segment_count}")
     print(f"  Words: {total_words}")
     print(f"  Silence events: {len(silence_events)}")
@@ -252,7 +252,7 @@ def download_episode(url: str, output_path: Path) -> Path:
     return output_path
 
 
-def main():
+def main() -> None:
     """Download and transcribe an episode from config."""
     config = get_config()
     db = Database(config.db_path)
@@ -261,7 +261,7 @@ def main():
     ep_id = int(sys.argv[1]) if len(sys.argv) > 1 else 1
     model_size = sys.argv[2] if len(sys.argv) > 2 else "small"
 
-    print(f"=== Podcast Transcription Pipeline ===")
+    print("=== Podcast Transcription Pipeline ===")
     print(f"Model: {model_size} (CPU, int8)")
     print(f"Episode ID: {ep_id}")
     print()

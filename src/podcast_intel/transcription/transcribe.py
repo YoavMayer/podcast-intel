@@ -7,7 +7,9 @@ pluggable backends (Whisper, cloud APIs, mocks) with consistent API.
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
+
+from podcast_intel.presets import DEFAULT_LANGUAGE
 
 
 class TranscriptionResult:
@@ -23,10 +25,10 @@ class TranscriptionResult:
 
     def __init__(
         self,
-        segments: List[Dict[str, Any]],
-        language: str = "en",
+        segments: list[dict[str, Any]],
+        language: str = DEFAULT_LANGUAGE,
         duration: float = 0.0,
-        diarization: Optional[List[Dict[str, Any]]] = None
+        diarization: list[dict[str, Any]] | None = None
     ):
         self.segments = segments
         self.language = language
@@ -46,7 +48,7 @@ class TranscriptionInterface(ABC):
     def transcribe(
         self,
         audio_path: Path,
-        language: str = "en",
+        language: str = DEFAULT_LANGUAGE,
         diarize: bool = True
     ) -> TranscriptionResult:
         """
@@ -54,7 +56,8 @@ class TranscriptionInterface(ABC):
 
         Args:
             audio_path: Path to audio file
-            language: Language code (default: "en" for English)
+            language: ISO 639-1 code. Defaults to presets.DEFAULT_LANGUAGE,
+                which is the language the rest of the config resolves from.
             diarize: Whether to perform speaker diarization
 
         Returns:
@@ -63,7 +66,7 @@ class TranscriptionInterface(ABC):
         pass
 
     @abstractmethod
-    def get_word_timestamps(self, audio_path: Path) -> List[Dict[str, Any]]:
+    def get_word_timestamps(self, audio_path: Path) -> list[dict[str, Any]]:
         """
         Get word-level timestamps for audio file.
 

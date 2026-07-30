@@ -2,7 +2,7 @@
 Podcast Quality Score v3.0 (PQS v3).
 
 Computes the composite Podcast Quality Score from 0-100 based on
-5 weighted domains and 39 sub-metrics:
+5 weighted domains and 37 sub-metrics:
 
   PQS_v3 = 0.10 * Audio + 0.25 * Delivery + 0.20 * Structure
          + 0.25 * Content + 0.20 * Engagement
@@ -11,14 +11,117 @@ Framework reference: reports/pqs_v3_framework.md
 Predecessor: PQS v2.1 (4 domains, 21 sub-metrics)
 """
 
-from typing import Dict, Any, List, Tuple
+from typing import Any
+
+# ============================================================
+# Scoring-profile version
+# ============================================================
+#
+# PROFILE_VERSION identifies the exact scoring profile that produced a score:
+# the domain weights, the sub-metric weights and every breakpoint table in this
+# module. It is NOT the package version and NOT the "v3" framework generation.
+#
+# Bump it whenever a change can move a composite score. Adding or removing a
+# sub-metric renormalises its domain's weights, which silently shifts every
+# score computed before the change -- old artifacts stay readable but stop
+# being COMPARABLE. Stamping the version into the returned dict is what lets
+# `check_comparable` refuse to compare across that boundary instead of quietly
+# reporting a regression that is really just a rescale.
+#
+# Comparability is exact string equality. A profile that scores differently in
+# any way is a different profile; there is no "compatible minor bump" here.
+
+PROFILE_VERSION = "3.1.0"
+
+#: Key under which :func:`compute_pqs` stamps the profile version.
+PROFILE_VERSION_KEY = "profile_version"
+
+#: Domains that must NOT move when a purely content-domain change lands.
+#: The 3.0.0 -> 3.1.0 de-sport change removed two CONTENT sub-metrics; if any of
+#: these four domain blocks changes too, the blast radius escaped the content
+#: domain. The 3.0.0 golden is kept beside the current one so that proof stays
+#: checkable across the version boundary, not just within one profile.
+NON_CONTENT_DOMAINS = ("audio", "delivery", "structure", "engagement")
+
+
+class ProfileVersionError(ValueError):
+    """Raised when an artifact's scoring profile is not comparable to the current one."""
+
+
+def artifact_profile_version(artifact: dict[str, Any]) -> str | None:
+    """Extract the scoring-profile version an artifact was produced under.
+
+    Recognises two shapes:
+
+    * current -- a top-level ``profile_version`` string, as stamped by
+      :func:`compute_pqs`;
+    * legacy -- a nested ``{"profile": {"version": ...}}`` block, the shape
+      historical ``pqs_recomputed.json`` artifacts carry.
+
+    Returns:
+        The version string, or ``None`` if the artifact carries no version at
+        all. ``None`` means *unknown*, never *current*: an unversioned artifact
+        predates versioning and is therefore not comparable.
+    """
+    value = artifact.get(PROFILE_VERSION_KEY)
+    if isinstance(value, str) and value:
+        return value
+
+    legacy = artifact.get("profile")
+    if isinstance(legacy, dict):
+        legacy_version = legacy.get("version")
+        if isinstance(legacy_version, str) and legacy_version:
+            return legacy_version
+        if isinstance(legacy_version, int | float):
+            return str(legacy_version)
+
+    return None
+
+
+def is_comparable(artifact: dict[str, Any]) -> bool:
+    """Return True only if ``artifact`` was scored under the current profile.
+
+    Unversioned artifacts return False. That is deliberate: silently treating
+    them as current is the exact failure this guard exists to prevent.
+    """
+    return artifact_profile_version(artifact) == PROFILE_VERSION
+
+
+def check_comparable(artifact: dict[str, Any], *, source: str = "artifact") -> None:
+    """Raise unless ``artifact`` may be compared against freshly computed scores.
+
+    Args:
+        artifact: A parsed scoring artifact.
+        source: Label used in the error message, e.g. a file path.
+
+    Raises:
+        ProfileVersionError: If the artifact carries a different profile
+            version, or none at all.
+    """
+    found = artifact_profile_version(artifact)
+    if found == PROFILE_VERSION:
+        return
+
+    if found is None:
+        detail = (
+            "carries no scoring-profile version, so it predates profile "
+            "versioning and its weights cannot be established"
+        )
+    else:
+        detail = f"was scored under profile {found!r}"
+
+    raise ProfileVersionError(
+        f"{source} {detail}; the current profile is {PROFILE_VERSION!r}. "
+        "Scores from different profiles are not comparable -- rescore the "
+        "source data under the current profile instead of comparing directly."
+    )
 
 
 # ============================================================
 # Utility
 # ============================================================
 
-def _piecewise_linear(value: float, breakpoints: List[Tuple[float, float]]) -> float:
+def _piecewise_linear(value: float, breakpoints: list[tuple[float, float]]) -> float:
     """Interpolate a score from piecewise-linear breakpoints.
 
     Args:
@@ -47,7 +150,7 @@ def _clamp(value: float, lo: float = 0.0, hi: float = 100.0) -> float:
     return max(lo, min(hi, value))
 
 
-def _score(value: float, breakpoints: List[Tuple[float, float]]) -> float:
+def _score(value: float, breakpoints: list[tuple[float, float]]) -> float:
     """Convenience: piecewise-linear then clamp to [0, 100]."""
     return round(_clamp(_piecewise_linear(value, breakpoints)), 2)
 
@@ -116,7 +219,7 @@ def score_spectral_balance(speech_band_pct: float) -> float:
     ])
 
 
-def compute_audio_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
+def compute_audio_domain(metrics: dict[str, float]) -> dict[str, Any]:
     """Compute Audio Quality domain from raw measurements.
 
     Expected keys: lufs, snr_db, clip_pct, lra_db, speech_band_pct
@@ -216,7 +319,7 @@ def score_hesitation_rate(per_hour: float) -> float:
     ])
 
 
-def compute_delivery_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
+def compute_delivery_domain(metrics: dict[str, float]) -> dict[str, Any]:
     """Compute Delivery & Dynamics domain from raw measurements."""
     fns = {
         "filler_rate": score_filler_rate,
@@ -312,7 +415,7 @@ def score_intro_structure(raw_score: float) -> float:
     ])
 
 
-def compute_structure_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
+def compute_structure_domain(metrics: dict[str, float]) -> dict[str, Any]:
     """Compute Structure & Flow domain from raw measurements."""
     fns = {
         "duration_fit": score_duration_fit,
@@ -331,18 +434,27 @@ def compute_structure_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
 
 
 # ============================================================
-# 4. Content Depth  (25%)  --  8 sub-metrics
+# 4. Content Depth  (25%)  --  6 sub-metrics
 # ============================================================
+#
+# Subject-neutral by design. Profile 3.0.0 also carried
+# ``match_reference_density`` (0.07) and ``tactical_depth_density`` (0.08),
+# which assumed the podcast was about sport. They were removed in 3.1.0 and the
+# remaining six weights renormalised from 0.85 to 1.0: each old weight / 0.85,
+# to 4 decimals. Naive rounding sums to 1.0001, so the smallest weight
+# (opinion_fact_ratio, 0.0824 -> 0.0823) absorbs the 1e-4 residue and the set
+# sums to exactly 1.0. Their RELATIVE proportions are otherwise unchanged, so a
+# content score moves only by the rescale.
+#
+# A subject-specific metric belongs in an optional provider, not here.
 
 CONTENT_WEIGHTS = {
-    "analytical_depth_ratio": 0.21875,
-    "content_words_per_minute": 0.175,
-    "topic_coverage_breadth": 0.13125,
-    "discussion_density": 0.175,
-    "domain_entity_density": 0.08,
-    "match_reference_density": 0.07,
-    "tactical_depth_density": 0.08,
-    "opinion_fact_ratio": 0.07,
+    "analytical_depth_ratio": 0.2574,
+    "content_words_per_minute": 0.2059,
+    "topic_coverage_breadth": 0.1544,
+    "discussion_density": 0.2059,
+    "domain_entity_density": 0.0941,
+    "opinion_fact_ratio": 0.0823,
 }
 
 
@@ -386,20 +498,6 @@ def score_domain_entity_density(per_kw: float) -> float:
     ])
 
 
-def score_match_reference_density(per_kw: float) -> float:
-    """Match event references per 1000 words."""
-    return _score(per_kw, [
-        (0.0, 0), (0.5, 0), (1.5, 50), (3.0, 80), (5.0, 100),
-    ])
-
-
-def score_tactical_depth_density(per_kw: float) -> float:
-    """Tactical concept mentions per 1000 words."""
-    return _score(per_kw, [
-        (0.0, 10), (0.5, 10), (1.5, 55), (2.5, 80), (4.0, 100),
-    ])
-
-
 def score_opinion_fact_ratio(ratio: float) -> float:
     """Opinion-to-fact ratio. Inverted-U at 1.0 (balanced)."""
     return _score(ratio, [
@@ -408,12 +506,16 @@ def score_opinion_fact_ratio(ratio: float) -> float:
     ])
 
 
-def compute_content_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
+def compute_content_domain(metrics: dict[str, float]) -> dict[str, Any]:
     """Compute Content Depth domain from raw measurements.
 
     Expected keys: analytical_depth_ratio, content_words_per_minute,
     topic_coverage_breadth, discussion_density, domain_entity_density,
-    match_reference_density, tactical_depth_density, opinion_fact_ratio
+    opinion_fact_ratio
+
+    Extra keys are ignored, so a caller still passing the 3.0.0 sport keys does
+    not crash -- but the score it gets back is a 3.1.0 score, which is why
+    :func:`compute_pqs` stamps ``profile_version``.
     """
     fns = {
         "analytical_depth_ratio": score_analytical_depth_ratio,
@@ -421,8 +523,6 @@ def compute_content_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
         "topic_coverage_breadth": score_topic_coverage_breadth,
         "discussion_density": score_discussion_density,
         "domain_entity_density": score_domain_entity_density,
-        "match_reference_density": score_match_reference_density,
-        "tactical_depth_density": score_tactical_depth_density,
         "opinion_fact_ratio": score_opinion_fact_ratio,
     }
     scoring = {k: fn(metrics[k]) for k, fn in fns.items()}
@@ -517,7 +617,7 @@ def score_dropoff_risk_index(index: float) -> float:
     ])
 
 
-def compute_engagement_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
+def compute_engagement_domain(metrics: dict[str, float]) -> dict[str, Any]:
     """Compute Engagement Proxies domain from raw measurements."""
     fns = {
         "conversational_energy": score_conversational_energy,
@@ -541,19 +641,22 @@ def compute_engagement_domain(metrics: Dict[str, float]) -> Dict[str, Any]:
 # ============================================================
 
 def compute_pqs(
-    audio_metrics: Dict[str, float],
-    delivery_metrics: Dict[str, float],
-    structure_metrics: Dict[str, float],
-    content_metrics: Dict[str, float],
-    engagement_metrics: Dict[str, float],
-) -> Dict[str, Any]:
+    audio_metrics: dict[str, float],
+    delivery_metrics: dict[str, float],
+    structure_metrics: dict[str, float],
+    content_metrics: dict[str, float],
+    engagement_metrics: dict[str, float],
+) -> dict[str, Any]:
     """Compute PQS v3 composite from raw metric values.
 
     Each dict maps sub-metric keys to raw values. See individual
     ``compute_*_domain`` functions for required keys.
 
     Returns:
-        Dict with ``pqs_v3`` composite, per-domain breakdowns, and formula.
+        Dict with ``pqs_v3`` composite, per-domain breakdowns, formula, and the
+        ``profile_version`` the score was computed under. Persist that version
+        with the score: :func:`check_comparable` needs it to tell a real quality
+        change from a rescale caused by a weight change.
     """
     domains = {
         "audio": compute_audio_domain(audio_metrics),
@@ -567,6 +670,7 @@ def compute_pqs(
     )
     return {
         "pqs_v3": round(composite, 2),
+        PROFILE_VERSION_KEY: PROFILE_VERSION,
         "domains": domains,
         "domain_weights": DOMAIN_WEIGHTS,
         "formula": (
@@ -599,8 +703,8 @@ def compute_pqs_from_domain_scores(
 
 
 def compute_domain_from_sub_scores(
-    sub_scores: Dict[str, float],
-    weights: Dict[str, float],
+    sub_scores: dict[str, float],
+    weights: dict[str, float],
 ) -> float:
     """Weighted sum of pre-computed sub-metric scores."""
     return round(sum(sub_scores[k] * weights[k] for k in weights), 2)
@@ -610,24 +714,24 @@ def compute_domain_from_sub_scores(
 # Backward-compatible helpers
 # ============================================================
 
-def compute_audio_quality_score(metrics: Dict[str, float]) -> float:
+def compute_audio_quality_score(metrics: dict[str, float]) -> float:
     """Compute Audio Quality domain score (0-100). Wrapper."""
-    return compute_audio_domain(metrics)["domain_score"]
+    return float(compute_audio_domain(metrics)["domain_score"])
 
 
-def compute_content_depth_score(metrics: Dict[str, float]) -> float:
+def compute_content_depth_score(metrics: dict[str, float]) -> float:
     """Compute Content Depth domain score (0-100). Wrapper."""
-    return compute_content_domain(metrics)["domain_score"]
+    return float(compute_content_domain(metrics)["domain_score"])
 
 
-def compute_structure_score(metrics: Dict[str, float]) -> float:
+def compute_structure_score(metrics: dict[str, float]) -> float:
     """Compute Structure & Flow domain score (0-100). Wrapper."""
-    return compute_structure_domain(metrics)["domain_score"]
+    return float(compute_structure_domain(metrics)["domain_score"])
 
 
-def compute_delivery_score(metrics: Dict[str, float]) -> float:
+def compute_delivery_score(metrics: dict[str, float]) -> float:
     """Compute Delivery & Dynamics domain score (0-100). Wrapper."""
-    return compute_delivery_domain(metrics)["domain_score"]
+    return float(compute_delivery_domain(metrics)["domain_score"])
 
 
 def normalize_metric(

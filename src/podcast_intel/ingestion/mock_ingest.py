@@ -9,15 +9,15 @@ The mock data uses English by default but the framework supports any language
 via the preset/config system.
 """
 
-from typing import List, Dict, Any
-from datetime import datetime, timedelta
 import random
+from datetime import datetime, timedelta
+from typing import Any
 
-from ..models.database import Database
 from ..config import get_config
+from ..models.database import Database
 
 
-def generate_mock_episodes(db: Database, count: int = 5) -> List[int]:
+def generate_mock_episodes(db: Database, count: int = 5) -> list[int]:
     """
     Generate and insert mock episode metadata for testing.
 
@@ -151,7 +151,7 @@ def create_test_episode(
     title: str,
     duration_seconds: int,
     pub_date: datetime
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a single test episode with specified parameters.
 
@@ -185,7 +185,7 @@ def create_test_episode(
     }
 
 
-def main():
+def main() -> None:
     """
     Main entry point for mock ingestion script.
 

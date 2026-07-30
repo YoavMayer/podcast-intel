@@ -9,14 +9,14 @@ Analyzes silence patterns in episodes to detect:
 Critical metric for podcast quality scoring (Section B, Metric #4).
 """
 
-from typing import List, Dict, Any, Optional
 import math
+from typing import Any
 
 
 def detect_silence_gaps(
-    segments: List[Dict[str, Any]],
+    segments: list[dict[str, Any]],
     min_gap: float = 0.5,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Find gaps between consecutive segments that are >= *min_gap* seconds.
 
     Segments are assumed to be sorted by start time.
@@ -33,7 +33,7 @@ def detect_silence_gaps(
     if len(segments) < 2:
         return []
 
-    gaps: List[Dict[str, Any]] = []
+    gaps: list[dict[str, Any]] = []
     for i in range(len(segments) - 1):
         gap_start = segments[i].get("end", 0.0)
         gap_end = segments[i + 1].get("start", 0.0)
@@ -52,9 +52,9 @@ def detect_silence_gaps(
 
 
 def detect_dead_air(
-    segments: List[Dict[str, Any]],
+    segments: list[dict[str, Any]],
     threshold: float = 5.0,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Detect dead-air gaps (silence >= *threshold* seconds).
 
     This is a convenience wrapper around :func:`detect_silence_gaps`.
@@ -71,10 +71,10 @@ def detect_dead_air(
 
 
 def analyze_micro_pauses(
-    segments: List[Dict[str, Any]],
+    segments: list[dict[str, Any]],
     min_pause: float = 0.3,
     max_pause: float = 2.0,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Find gaps in the micro-pause range between segments.
 
     Micro-pauses are gaps with duration satisfying
@@ -96,7 +96,7 @@ def analyze_micro_pauses(
 
 
 def compute_silence_density(
-    segments: List[Dict[str, Any]],
+    segments: list[dict[str, Any]],
     episode_duration: float,
 ) -> float:
     """Compute total silence time as a fraction of episode duration.
@@ -119,13 +119,13 @@ def compute_silence_density(
         for seg in segments
     )
     silence = max(0.0, episode_duration - total_talk)
-    return min(1.0, silence / episode_duration)
+    return float(min(1.0, silence / episode_duration))
 
 
 def compute_silence_stats(
-    segments: List[Dict[str, Any]],
+    segments: list[dict[str, Any]],
     episode_duration: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return comprehensive silence statistics for an episode.
 
     Args:
@@ -169,9 +169,9 @@ def compute_silence_stats(
 
 
 def detect_speaker_gaps(
-    segments: List[Dict[str, Any]],
+    segments: list[dict[str, Any]],
     min_gap: float = 1.0,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Find gaps that occur between *different* speakers.
 
     These transitions can indicate hesitation, topic shifts, or
@@ -196,10 +196,10 @@ def detect_speaker_gaps(
 
 
 def analyze_silence_and_pacing(
-    segments: List[Dict[str, Any]],
-    word_timestamps: Dict[int, List[Dict[str, Any]]],
+    segments: list[dict[str, Any]],
+    word_timestamps: dict[int, list[dict[str, Any]]],
     episode_duration: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Comprehensive silence and pacing analysis.
 
     Combines dead-air detection, micro-pause analysis per speaker,
@@ -217,7 +217,7 @@ def analyze_silence_and_pacing(
     dead_total = sum(d["duration"] for d in dead)
 
     # Per-speaker micro-pause analysis using word timestamps.
-    micro_by_speaker: Dict[int, Dict[str, float]] = {}
+    micro_by_speaker: dict[int, dict[str, float]] = {}
     for spk_id, words in word_timestamps.items():
         pauses = _word_level_pauses(words, min_pause=0.3, max_pause=2.0)
         if pauses:
@@ -230,7 +230,7 @@ def analyze_silence_and_pacing(
         }
 
     # Pacing alerts.
-    pacing_alerts: List[Dict[str, Any]] = []
+    pacing_alerts: list[dict[str, Any]] = []
     for spk_id, words in word_timestamps.items():
         pauses = _word_level_pauses(words, min_pause=0.3, max_pause=2.0)
         if len(pauses) >= 5:
@@ -251,9 +251,9 @@ def analyze_silence_and_pacing(
 
 
 def detect_monotony_risk(
-    pause_durations: List[float],
+    pause_durations: list[float],
     cv_threshold: float = 0.15,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Detect monotonous pacing from pause regularity.
 
     Low coefficient of variation indicates robotic, overly regular delivery.
@@ -281,10 +281,10 @@ def detect_monotony_risk(
 
 
 def detect_hesitation_spikes(
-    segments: List[Dict[str, Any]],
-    word_timestamps: List[Dict[str, Any]],
+    segments: list[dict[str, Any]],
+    word_timestamps: list[dict[str, Any]],
     window_size: float = 30.0,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Detect hesitation spikes in speech.
 
     Identifies windows where mid-sentence pause frequency exceeds 2x the
@@ -306,7 +306,7 @@ def detect_hesitation_spikes(
         return []
 
     # Get timestamps of pauses for windowed analysis.
-    pause_times: List[float] = []
+    pause_times: list[float] = []
     for i in range(len(word_timestamps) - 1):
         gap = word_timestamps[i + 1].get("start", 0.0) - word_timestamps[i].get("end", 0.0)
         if 0.3 <= gap <= 2.0:
@@ -321,7 +321,7 @@ def detect_hesitation_spikes(
 
     avg_rate = len(pause_times) / (total_duration / window_size) if total_duration > 0 else 0.0
 
-    spikes: List[Dict[str, Any]] = []
+    spikes: list[dict[str, Any]] = []
     start = pause_times[0]
     end_time = pause_times[-1]
     window_start = start
@@ -344,7 +344,7 @@ def detect_hesitation_spikes(
     return spikes
 
 
-def compute_coefficient_of_variation(values: List[float]) -> float:
+def compute_coefficient_of_variation(values: list[float]) -> float:
     """Compute coefficient of variation (CV = std_dev / mean).
 
     Args:
@@ -371,10 +371,10 @@ def compute_coefficient_of_variation(values: List[float]) -> float:
 
 
 def _word_level_pauses(
-    words: List[Dict[str, Any]],
+    words: list[dict[str, Any]],
     min_pause: float = 0.3,
     max_pause: float = 2.0,
-) -> List[float]:
+) -> list[float]:
     """Extract inter-word pause durations within a range.
 
     Args:
@@ -385,7 +385,7 @@ def _word_level_pauses(
     Returns:
         List of pause durations.
     """
-    pauses: List[float] = []
+    pauses: list[float] = []
     for i in range(len(words) - 1):
         gap = words[i + 1].get("start", 0.0) - words[i].get("end", 0.0)
         if min_pause <= gap <= max_pause:

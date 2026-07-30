@@ -31,9 +31,9 @@ Environment variables:
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -65,7 +65,7 @@ def _load_config():
     if config_path.exists():
         try:
             import yaml
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}
         except ImportError:
             pass

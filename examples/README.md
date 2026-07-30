@@ -11,7 +11,9 @@ See what podcast-intel produces after analyzing an episode.
 **Path:** `examples/sample-output/`
 
 **Files:**
-- `pqs_v3_scores.json` -- Full PQS v3 quality scores with 5 domains, 39 sub-metrics, speaker breakdown, and coaching notes
+- `pqs_v3_scores.json` -- Full PQS v3 quality scores with 5 domains, 37 sub-metrics and a
+  speaker breakdown. Its `coaching_notes` array was hand-written for this sample: automated
+  coaching notes are **planned**, and no packaged code generates them today.
 - `pre_recording_brief_ep43.html` -- Mobile-first HTML brief that panelists review in 2 minutes before recording
 - `pipeline_results.json` -- Pipeline execution summary showing each step (RSS, download, transcribe, diarize, analyze, report)
 - `transcript_snippet.json` -- Sample transcript with word-level timestamps and speaker attribution
@@ -45,10 +47,13 @@ cp examples/quickstart/podcast.yaml /path/to/your/podcast/
 # Edit with your details
 vim podcast.yaml
 
-# Start analyzing
+# Fetch the feed and download new episodes
 podcast-intel ingest
-podcast-intel analyze 1
 ```
+
+> `podcast.yaml` is read by `podcast-intel ingest`/`watch` for the `podcast`,
+> `speakers` and `triggers` sections. The `models`, `branding` and `scoring`
+> sections below are **schema only** -- no packaged code reads them yet.
 
 ## Creating Your Own Configuration
 
@@ -57,9 +62,6 @@ podcast-intel analyze 1
 ```bash
 # Copy the quickstart example
 cp examples/quickstart/podcast.yaml ./
-
-# Or use the CLI to generate a template
-podcast-intel init
 ```
 
 ### 2. Customize for your podcast
@@ -70,7 +72,7 @@ Edit `podcast.yaml` with your podcast details:
 podcast:
   name: "Your Podcast Name"
   rss_url: "https://your-podcast-feed.com/rss"
-  language: "en"  # or "he", "es", etc.
+  language: "en"  # "en" and "he" have shipped presets; other codes fall back to defaults
 
 speakers:
   default:
@@ -113,88 +115,6 @@ scoring:
     engagement: 0.35  # Higher weight on chemistry
 ```
 
-## Advanced: Specialization Configs
-
-For domain-specific podcasts (sports, finance, etc.), create additional config files:
-
-### Example: Sports Podcast
-
-```
-my-sports-podcast/
-├── podcast.yaml         # Base configuration
-├── speakers.yaml        # Detailed speaker profiles
-├── entities.yaml        # Sports-specific entities
-└── scoring_weights.yaml # Custom PQS weights
-```
-
-**speakers.yaml:**
-
-```yaml
-speakers:
-  - id: host
-    name: "John Smith"
-    role: host
-    expertise:
-      - "soccer"
-      - "basketball"
-    social:
-      twitter: "@johnsmith"
-
-  - id: analyst
-    name: "Maria Garcia"
-    role: analyst
-    expertise:
-      - "statistics"
-      - "tactics"
-```
-
-**entities.yaml:**
-
-```yaml
-entity_categories:
-  teams:
-    - "Manchester United"
-    - "Real Madrid"
-    - "Barcelona"
-    - "Bayern Munich"
-
-  players:
-    - "Lionel Messi"
-    - "Cristiano Ronaldo"
-    - "Kylian Mbappé"
-
-  leagues:
-    - "Premier League"
-    - "La Liga"
-    - "Bundesliga"
-    - "Serie A"
-
-  competitions:
-    - "Champions League"
-    - "World Cup"
-    - "Europa League"
-```
-
-**scoring_weights.yaml:**
-
-```yaml
-# Custom weights for sports analysis podcasts
-domain_weights:
-  audio: 0.10
-  delivery: 0.20
-  structure: 0.20
-  content: 0.30      # Emphasize analysis quality
-  engagement: 0.20
-
-# Optionally, customize sub-metric weights within domains
-content_weights:
-  topic_depth: 0.25         # Deep tactical analysis
-  entity_diversity: 0.20    # Mention many teams/players
-  domain_relevance: 0.20    # Sports-specific terms
-  information_density: 0.15
-  # ... other sub-metrics
-```
-
 ## Language-Specific Examples
 
 ### Hebrew Podcast
@@ -212,8 +132,7 @@ speakers:
     - "מיקי אברמוב"
 
 models:
-  # Uses Hebrew preset automatically
-  # Override if needed:
+  # Resolved from the Hebrew preset; listed here only to be explicit
   transcription: "ivrit-ai/whisper-large-v3-turbo"
   ner: "dicta-il/dictabert-ner"
   sentiment: "avichr/heBERT_sentiment_analysis"
@@ -222,25 +141,6 @@ branding:
   show_name: "הפודקאסט שלי"
   primary_color: "#0066cc"
   footer_text: "מערכת ניתוח הפודקאסט"
-```
-
-### Spanish Podcast
-
-```yaml
-podcast:
-  name: "Mi Podcast"
-  language: "es"
-  rss_url: "https://feeds.example.com/mipodcast.rss"
-
-speakers:
-  default:
-    - "María González"
-    - "Carlos Rodríguez"
-
-branding:
-  show_name: "MI PODCAST"
-  primary_color: "#FF4136"
-  footer_text: "Inteligencia del Podcast"
 ```
 
 ## Multi-Episode Speaker Overrides
@@ -271,14 +171,11 @@ speakers:
 After creating your configuration:
 
 ```bash
-# Generate mock data to test
+# Generate mock data end to end (core dependencies only)
 podcast-intel mock
 
-# Analyze a real episode
-podcast-intel analyze 1
-
-# Check the generated report
-open reports/episode_1/one_pager.html
+# Dry-run the RSS trigger against your podcast.yaml
+podcast-intel watch --dry-run
 ```
 
 ## Need Help?
@@ -292,7 +189,7 @@ open reports/episode_1/one_pager.html
 Have a great configuration for a specific podcast type? Please contribute it!
 
 1. Create a new directory: `examples/your-podcast-type/`
-2. Add your `podcast.yaml` and any specialization files
+2. Add your `podcast.yaml`
 3. Add a README explaining the configuration
 4. Submit a pull request
 

@@ -19,20 +19,36 @@ ENV/
 *.swp
 *.swo
 
-# Data (user-generated, not tracked)
-data/audio/
-data/db/
-data/embeddings/
+# Data (user-generated, never tracked -- see scripts/check-no-leak.sh)
+data/
+audio/
+transcripts/
+briefs/
+briefings/
+specializations/
+
+# Episode media and transcript artifacts
+*.mp3
+*.wav
+*.m4a
+*.flac
+*.srt
+*.vtt
+*.db
+*.sqlite
+*.sqlite3
 
 # Reports (user-generated, not tracked)
 reports/
 
 # Logs
 logs/
+*.log
 
 # Environment
 .env
-.env.local
+.env.*
+!.env.example
 
 # OS files
 .DS_Store
@@ -48,9 +64,14 @@ htmlcov/
 
 # User podcast config (contains user-specific settings)
 podcast.yaml
+# ...but the shipped example must be published; README/CONTRIBUTING point at it.
+!examples/quickstart/podcast.yaml
 
 # Local-only drafts (not published)
 STAKEHOLDER_PANEL_REVIEW.md
 
 # Claude Code / babysitter cache
 .a5c/
+
+# uv resolver lockfile (local dev only; CI installs with pip)
+uv.lock

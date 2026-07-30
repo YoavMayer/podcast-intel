@@ -1,0 +1,27 @@
+# Example: English tech podcast configuration
+
+podcast:
+  name: "Tech Talk Weekly"
+  language: "en"
+  rss_url: "https://feeds.example.com/techtalk/rss"
+
+speakers:
+  default:
+    - "Alice Chen"
+    - "Bob Martinez"
+    - "Carol Smith"
+
+models:
+  transcription: "openai/whisper-large-v3-turbo"
+  ner: "dslim/bert-base-NER"
+  sentiment: "cardiffnlp/twitter-roberta-base-sentiment-latest"
+  embedding: "BAAI/bge-m3"
+
+branding:
+  show_name: "TECH TALK WEEKLY"
+  primary_color: "#2563eb"
+  footer_text: "Tech Talk Weekly Intelligence"
+
+analysis:
+  episode_dir_prefix: "episode"
+  episodes_json: "episodes.json"

@@ -12,9 +12,10 @@ This document provides a technical overview of the podcast-intel system architec
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
 │  │   Ingestion  │  │Transcription │  │   Analysis   │          │
 │  │              │  │              │  │              │          │
-│  │ RSS Parser   │→ │   Whisper    │→ │ NER Pipeline │          │
-│  │ Downloader   │  │ PyAnnote     │  │ Sentiment    │          │
-│  │              │  │ Diarization  │  │ Filler Det.  │          │
+│  │ RSS Parser   │→ │   Whisper    │→ │ Filler Det.  │          │
+│  │ Downloader   │  │ MFCC +       │  │ Silence      │          │
+│  │              │  │ Spectral     │  │ Metrics      │          │
+│  │              │  │ Clustering   │  │              │          │
 │  └──────────────┘  └──────────────┘  └──────────────┘          │
 │         │                  │                  │                  │
 │         ↓                  ↓                  ↓                  │
@@ -22,17 +23,16 @@ This document provides a technical overview of the podcast-intel system architec
 │  │              SQLite Database (Episodes)           │          │
 │  │  - Metadata  - Transcripts  - Analysis Results   │          │
 │  └──────────────────────────────────────────────────┘          │
-│         │                                             │          │
-│         ↓                                             ↓          │
-│  ┌──────────────┐                           ┌──────────────┐   │
-│  │   Scoring    │                           │    Search    │   │
-│  │              │                           │              │   │
-│  │  PQS v3      │                           │  Embeddings  │   │
-│  │  Coaching    │                           │  ChromaDB    │   │
-│  │              │                           │              │   │
-│  └──────────────┘                           └──────────────┘   │
-│         │                                             │          │
-│         ↓                                             ↓          │
+│         │                                                        │
+│         ↓                                                        │
+│  ┌──────────────┐                                               │
+│  │   Scoring    │                                               │
+│  │              │                                               │
+│  │  PQS v3      │                                               │
+│  │              │                                               │
+│  └──────────────┘                                               │
+│         │                                                        │
+│         ↓                                                        │
 │  ┌──────────────────────────────────────────────────┐          │
 │  │           HTML Reports & JSON Exports             │          │
 │  └──────────────────────────────────────────────────┘          │
@@ -69,7 +69,8 @@ Converts audio to timestamped text with speaker labels.
 **Key Components:**
 
 - `whisper_transcriber.py` - Whisper-based speech-to-text
-- `diarize.py` - PyAnnote speaker diarization
+- `diarize.py` - Speaker diarization: MFCC features + spectral clustering (`librosa`,
+  `soundfile`, `scikit-learn`, CPU-only; no PyAnnote and no Hugging Face token)
 - `transcribe.py` - Main transcription interface
 
 **Pipeline:**
@@ -77,10 +78,13 @@ Converts audio to timestamped text with speaker labels.
 ```
 MP3 file → Whisper → Word-level timestamps
          ↓
-    PyAnnote → Speaker segments (SPEAKER_00, SPEAKER_01)
+    MFCC + spectral clustering → Speaker segments (SPEAKER_00, SPEAKER_01)
          ↓
     Merge → Transcript with speaker labels
 ```
+
+> A PyAnnote-based diarizer exists in `tools/diarize_episode.py`. It is a standalone
+> script, is **not** part of the installed package, and requires its own dependencies.
 
 **Output Format:**
 
@@ -106,12 +110,10 @@ MP3 file → Whisper → Word-level timestamps
 
 ### 3. Analysis (`podcast_intel/analysis/`)
 
-Multi-model NLP pipeline for extracting insights.
+Analysis primitives for extracting insights from a transcript.
 
 **Key Components:**
 
-- `ner_pipeline.py` - Named Entity Recognition (BERT-based)
-- `sentiment.py` - Sentiment analysis per segment
 - `filler_detector.py` - Filler word detection with regex
 - `silence_analyzer.py` - Pause and silence detection
 - `metrics.py` - Delivery metrics (pace, energy, pitch)
@@ -120,11 +122,7 @@ Multi-model NLP pipeline for extracting insights.
 **Pipeline:**
 
 ```
-Transcript → NER → Entities (PERSON, ORGANIZATION, LOCATION, EVENT)
-          ↓
-      Sentiment → Positive/Negative/Neutral scores
-          ↓
-   Filler Detector → Filler word locations and counts
+Transcript → Filler Detector → Filler word locations and counts
           ↓
   Silence Analyzer → Pause durations and frequencies
           ↓
@@ -133,105 +131,28 @@ Transcript → NER → Entities (PERSON, ORGANIZATION, LOCATION, EVENT)
       Scorer → PQS v3 score (0-100)
 ```
 
-**Models:**
-
-| Task | Default Model | Alternatives |
-|------|--------------|--------------|
-| NER | `dslim/bert-base-NER` | `dicta-il/dictabert-ner` (Hebrew) |
-| Sentiment | `cardiffnlp/twitter-roberta-base-sentiment-latest` | `avichr/heBERT_sentiment_analysis` (Hebrew) |
-| Embedding | `BAAI/bge-m3` | `sentence-transformers/all-MiniLM-L6-v2` |
+> **Not implemented.** NER and sentiment analysis are *planned*, not shipped. The
+> `entities` / `entity_mentions` tables exist in the schema and the `ner` / `sentiment`
+> model IDs exist in the config, but no packaged code populates them. Configuring a
+> model ID does not make the stage run.
 
 **Database Tables:**
-- `entities` + `entity_mentions` - Extracted named entities and their locations
 - `metrics` - Episode and speaker-level metrics
 - `silence_events` - Detected silence gaps and dead air
+- `entities` + `entity_mentions` - reserved for the planned NER stage; unpopulated today
 
-### 4. Coaching (`podcast_intel/coaching/`)
+### 4. Not implemented: coaching and semantic search
 
-LLM-powered speaker feedback and improvement suggestions.
+Earlier revisions of this document described a `podcast_intel/coaching/` package
+(LLM-powered per-speaker feedback) and a `podcast_intel/search/` package (embeddings +
+ChromaDB + reranking). **Neither ships.** Both were placeholder modules whose every
+function returned `None`, so they were removed rather than left importable. They remain
+on the roadmap; `git log` retains the removed skeletons.
 
-**Key Components:**
+The `coaching_notes` and `embeddings` database tables are still in the schema and are
+unpopulated by any packaged code.
 
-- `coach.py` - Main coaching engine using LLM API
-- `interruptions.py` - Interruption pattern detection
-
-**Pipeline:**
-
-```
-Transcript + Metrics → LLM (GPT-4/Claude) → Coaching notes
-                    ↓
-            Per-speaker feedback
-            - Strengths
-            - Areas for improvement
-            - Specific examples
-```
-
-**Example Output:**
-
-```json
-{
-  "speaker": "Alice",
-  "strengths": [
-    "Clear and concise explanations",
-    "Good energy and enthusiasm"
-  ],
-  "improvements": [
-    "Reduce use of 'um' and 'uh' (15 instances)",
-    "Allow more time for co-host responses"
-  ],
-  "examples": [
-    "At 12:34 - Strong opening that hooked listeners",
-    "At 23:45 - Interrupted guest during key point"
-  ]
-}
-```
-
-### 5. Search (`podcast_intel/search/`)
-
-Semantic search across all episodes using vector embeddings.
-
-**Key Components:**
-
-- `embedder.py` - Generate embeddings using sentence-transformers
-- `vector_store.py` - ChromaDB integration for vector storage
-- `query.py` - Search interface with reranking
-
-**Pipeline:**
-
-```
-Transcript segments → Embedder → 768-dim vectors
-                              ↓
-                          ChromaDB
-                              ↓
-Query text → Embedder → Query vector → Similarity search
-                                    ↓
-                              Top-K results → Reranker → Final results
-```
-
-**Features:**
-
-- Semantic search (not just keyword matching)
-- Multi-language support (multilingual embeddings)
-- Reranking for improved relevance
-- Metadata filtering (date, speaker, episode)
-
-**Example Query:**
-
-```python
-from podcast_intel.search.query import search_episodes
-
-results = search_episodes(
-    query="machine learning trends",
-    top_k=10,
-    filters={"speaker": "Alice"}
-)
-
-for result in results:
-    print(f"Episode {result.episode}: {result.text}")
-    print(f"Timestamp: {result.timestamp}, Score: {result.score}")
-```
-
-### 6. Models (`podcast_intel/models/`)
+### 5. Models (`podcast_intel/models/`)
 
 Data models and database layer.
 
@@ -275,18 +196,28 @@ Environment Variables (highest priority)
 **Configuration Flow:**
 
 ```python
-# Load configuration
-config = Config()  # Loads from .env and environment
+from podcast_intel.config import get_config
 
-# Load podcast.yaml
-podcast_yaml = load_podcast_yaml()
-
-# Merge with language preset
-preset = load_preset(podcast_yaml['podcast']['language'])
-
-# Final configuration
-final_config = merge_configs(config, podcast_yaml, preset)
+# One call performs all four layers:
+#   defaults < presets/{language}.yaml < podcast.yaml < environment/.env
+config = get_config()
+config.transcription_model   # e.g. 'ivrit-ai/whisper-large-v3-turbo' under language: he
 ```
+
+Internally (`config.py`):
+
+```python
+config     = Config()                       # environment + .env + defaults
+language   = resolve_language(podcast_yaml, env_language)
+overrides  = project(load_preset(language)) # skipped when no preset ships
+overrides |= project(load_podcast_yaml())   # podcast.yaml beats the preset
+# fields the environment set are never overwritten
+```
+
+Only the keys `Config` models are merged; the rest of `podcast.yaml`
+(`speakers`, `branding`, `scoring`, `triggers`) is read directly by `cli.py` and
+`triggers/rss_watcher.py` through `load_podcast_yaml()`. See
+[CONFIGURATION.md](CONFIGURATION.md#configuration-precedence) for the full key map.
 
 ## CLI Architecture
 
@@ -306,16 +237,15 @@ podcast-intel
 **Command Flow:**
 
 ```
-User runs: podcast-intel analyze 42
+User runs: python tools/run_episode_analysis.py 42
 
 1. Load configuration (podcast.yaml + .env)
 2. Check if audio exists, download if needed
 3. Transcribe with Whisper + diarization
-4. Run analysis pipeline (NER, sentiment, fillers)
+4. Run analysis pipeline (fillers, silence, metrics)
 5. Compute PQS scores
-6. Generate coaching notes
-7. Save to database
-8. Generate HTML report
+6. Save to database
+7. Generate HTML report
 ```
 
 ## Tools Directory
@@ -325,7 +255,8 @@ Standalone scripts for specific analysis tasks:
 - `run_episode_analysis.py` - Full analysis pipeline for one episode
 - `generate_one_pager.py` - Create executive summary HTML report
 - `analyze_panel_chemistry.py` - Speaker interaction analysis
-- `diarize_episode.py` - Speaker diarization with PyAnnote
+- `diarize_episode.py` - Speaker diarization with PyAnnote (script-only; PyAnnote is not
+  a package dependency -- install `pyannote-audio` yourself to use this one)
 - `merge_diarization.py` - Merge transcript with diarization
 - `text_based_diarization.py` - Fallback diarization using text patterns
 
@@ -352,9 +283,8 @@ Tools provide more flexibility for:
 
 ### Diarization
 
-- **Memory**: PyAnnote requires 4-8 GB GPU memory
-- **Time**: ~2-3x real-time on GPU
-- **Accuracy**: 85-95% depending on audio quality
+- **Packaged diarizer** (MFCC + spectral clustering): CPU-only, no GPU memory needed
+- **`tools/diarize_episode.py`** (PyAnnote, optional): 4-8 GB GPU memory, ~2-3x real-time on GPU
 
 ### NLP Models
 
@@ -443,24 +373,24 @@ pip install -e ".[dev,all]"
 ### Production
 
 ```bash
-# Install without dev dependencies
-pip install podcast-intel[all]
+# Install without dev dependencies (not yet published to PyPI)
+pip install "podcast-intel[all] @ git+https://github.com/YoavMayer/podcast-intel.git"
 
 # Set up environment
 export PODCAST_INTEL_DB_PATH=/data/podcast.db
 export PODCAST_INTEL_AUDIO_DIR=/data/audio
 export PODCAST_INTEL_HUGGINGFACE_TOKEN=hf_xxx
 
-# Run analysis
-podcast-intel analyze 42
+# Run analysis (via the standalone tools/ scripts)
+python tools/run_episode_analysis.py 42
 ```
 
 ### Docker (Future)
 
 ```dockerfile
 FROM python:3.10-slim
-RUN pip install podcast-intel[all]
-CMD ["podcast-intel", "analyze"]
+RUN pip install "podcast-intel[all] @ git+https://github.com/YoavMayer/podcast-intel.git"
+CMD ["podcast-intel", "watch"]
 ```
 
 ## Dependencies
@@ -471,19 +401,15 @@ CMD ["podcast-intel", "analyze"]
 - `pydantic` - Configuration validation
 - `PyYAML` - YAML parsing
 
-**Transcription:**
+**Transcription (`[transcription]` extra):**
 - `faster-whisper` - Optimized Whisper implementation
-- `pyannote-audio` - Speaker diarization
 - `torch` - PyTorch backend
+- `librosa`, `soundfile`, `scikit-learn`, `numpy` - MFCC + spectral-clustering diarization
 
-**Analysis:**
+**Analysis (`[analysis]` extra):**
 - `transformers` - Hugging Face models
 - `numpy` - Numerical computation
 - `scipy` - Scientific computation
-
-**Search:**
-- `chromadb` - Vector database
-- `sentence-transformers` - Embeddings
 
 **Development:**
 - `pytest` - Testing framework

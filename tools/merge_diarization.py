@@ -26,7 +26,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REPORTS_DIR = PROJECT_ROOT / "reports"
@@ -242,7 +242,7 @@ def main():
 
     # Quality check
     quality = compute_merge_quality(enriched)
-    print(f"\nMerge quality:")
+    print("\nMerge quality:")
     print(f"  Total segments: {quality['total_segments']}")
     print(f"  Unknown segments: {quality['unknown_segments']} ({quality['unknown_rate_pct']}%)")
     print(f"  Unique speakers: {quality['unique_speakers']}")

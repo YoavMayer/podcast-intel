@@ -1,4 +1,4 @@
-# Podcast Quality Score (PQS) v3.0 Framework
+# Podcast Quality Score (PQS) v3.1 Framework
 
 The Podcast Quality Score (PQS) is a comprehensive 0-100 metric that evaluates podcast episodes across multiple dimensions of quality.
 
@@ -9,11 +9,22 @@ PQS = 0.10 × Audio + 0.25 × Delivery + 0.20 × Structure
     + 0.25 × Content + 0.20 × Engagement
 ```
 
+### Scoring profile
+
+`scorer.PROFILE_VERSION` (currently `3.1.0`) names the exact weights and
+breakpoint tables that produced a score, and `compute_pqs()` stamps it into its
+result. Persist it with the score: `check_comparable()` uses it to refuse a
+comparison across a profile change instead of reporting a rescale as a quality
+regression.
+
 ### Version History
 
 - **PQS v1.0**: Basic metrics (audio, speaking pace)
 - **PQS v2.1**: Expanded to 4 domains, 21 sub-metrics
-- **PQS v3.0**: Current version - 5 domains, 39 sub-metrics
+- **PQS v3.0**: 5 domains, 39 sub-metrics
+- **PQS v3.1**: Current version - 5 domains, 37 sub-metrics. Two sport-specific
+  content sub-metrics were removed and the remaining six renormalised; content and
+  composite scores are **not comparable** with v3.0 output.
 
 ## The 5 Domains
 
@@ -22,7 +33,7 @@ PQS = 0.10 × Audio + 0.25 × Delivery + 0.20 × Structure
 | **Audio Quality** | 10% | Technical audio production | 5 |
 | **Delivery & Dynamics** | 25% | Speaking quality and fluency | 9 |
 | **Structure & Flow** | 20% | Episode organization | 8 |
-| **Content Depth** | 25% | Information quality and density | 8 |
+| **Content Depth** | 25% | Information quality and density | 6 |
 | **Engagement Proxies** | 20% | Listener retention signals | 9 |
 
 ## 1. Audio Quality (10%)
@@ -161,18 +172,24 @@ def compute_structure_domain(metrics):
 
 Information quality, analytical depth, and topic coverage.
 
-### Sub-metrics (8 total)
+### Sub-metrics (6 total)
+
+Subject-neutral: nothing here assumes what the podcast is about.
 
 | Metric | Weight | Description | Target |
 |--------|--------|-------------|--------|
-| **Analytical Depth Ratio** | 21.875% | Analytical segments as % of total | >= 12% |
-| **Content Words per Minute** | 17.5% | Content words per minute (excluding fillers) | >= 120 cwpm |
-| **Discussion Density** | 17.5% | Words per second of discussion | >= 2.2 w/s |
-| **Topic Coverage Breadth** | 13.125% | Topic diversity (Shannon entropy) | >= 0.90 |
-| **Domain Entity Density** | 8% | Domain-related entity mentions per 1000 words | >= 5/kw |
-| **Tactical Depth Density** | 8% | Tactical concept mentions per 1000 words | >= 2.5/kw |
-| **Match Reference Density** | 7% | Event references per 1000 words | >= 3/kw |
-| **Opinion-Fact Ratio** | 7% | Opinion-to-fact ratio (balanced = best) | ~1.0 (inverted-U) |
+| **Analytical Depth Ratio** | 25.74% | Analytical segments as % of total | >= 12% |
+| **Content Words per Minute** | 20.59% | Content words per minute (excluding fillers) | >= 120 cwpm |
+| **Discussion Density** | 20.59% | Words per second of discussion | >= 2.2 w/s |
+| **Topic Coverage Breadth** | 15.44% | Topic diversity (Shannon entropy) | >= 0.90 |
+| **Domain Entity Density** | 9.41% | Domain-related entity mentions per 1000 words | >= 5/kw |
+| **Opinion-Fact Ratio** | 8.23% | Opinion-to-fact ratio (balanced = best) | ~1.0 (inverted-U) |
+
+v3.0 also carried **Tactical Depth Density** (8%) and **Match Reference Density**
+(7%), which assumed a sport podcast. v3.1 removes them and renormalises the six
+above from 0.85 to 1.0 (each old weight / 0.85, to 4 decimals). Their relative
+proportions are unchanged, so a v3.1 content score is a rescale of the v3.0 one --
+but it is a different number, and the two must not be plotted on one trend line.
 
 ### Scoring Function
 
@@ -180,16 +197,14 @@ Information quality, analytical depth, and topic coverage.
 def compute_content_domain(metrics):
     # Expected keys: analytical_depth_ratio, content_words_per_minute,
     #   topic_coverage_breadth, discussion_density, domain_entity_density,
-    #   match_reference_density, tactical_depth_density, opinion_fact_ratio
+    #   opinion_fact_ratio
     return (
-        0.21875 * score_analytical_depth_ratio(metrics['analytical_depth_ratio']) +
-        0.175   * score_content_words_per_minute(metrics['content_words_per_minute']) +
-        0.175   * score_discussion_density(metrics['discussion_density']) +
-        0.13125 * score_topic_coverage_breadth(metrics['topic_coverage_breadth']) +
-        0.08    * score_domain_entity_density(metrics['domain_entity_density']) +
-        0.08    * score_tactical_depth_density(metrics['tactical_depth_density']) +
-        0.07    * score_match_reference_density(metrics['match_reference_density']) +
-        0.07    * score_opinion_fact_ratio(metrics['opinion_fact_ratio'])
+        0.2574 * score_analytical_depth_ratio(metrics['analytical_depth_ratio']) +
+        0.2059 * score_content_words_per_minute(metrics['content_words_per_minute']) +
+        0.2059 * score_discussion_density(metrics['discussion_density']) +
+        0.1544 * score_topic_coverage_breadth(metrics['topic_coverage_breadth']) +
+        0.0941 * score_domain_entity_density(metrics['domain_entity_density']) +
+        0.0823 * score_opinion_fact_ratio(metrics['opinion_fact_ratio'])
     )
 ```
 
@@ -364,7 +379,8 @@ Episode 43: PQS = 81.9 (+3.7)
 2. **Focus on trends** - Consistent improvement matters more than individual scores
 3. **Customize weights** - Adjust for your podcast type and audience
 4. **Combine with qualitative feedback** - PQS complements, doesn't replace, listener feedback
-5. **Use coaching insights** - Read the per-speaker coaching notes for specific guidance
+5. **Read the sub-metric breakdown** - The per-speaker sub-metric scores show where a
+   domain score came from; automated coaching notes are planned, not shipped
 
 ## Technical Notes
 
@@ -398,17 +414,43 @@ if not has_diarization:
 ## References
 
 - **Loudness Standards**: ITU-R BS.1770-4, EBU R 128
-- **Transcription**: OpenAI Whisper, PyAnnote Audio
-- **NER**: BERT-based Named Entity Recognition
-- **Sentiment**: RoBERTa-based Sentiment Analysis
+- **Transcription**: OpenAI Whisper / faster-whisper
+- **Diarization**: MFCC features + spectral clustering (librosa, scikit-learn)
+
+## Migrating from v3.0 to v3.1
+
+1. **Stop comparing old scores to new ones.** Content and composite scores are
+   not comparable across the boundary. `compute_pqs()` stamps `profile_version`;
+   `check_comparable(artifact)` raises on anything that does not carry
+   `"3.1.0"`, including unversioned artifacts. Rescore the source metrics rather
+   than reconciling the numbers.
+2. **Drop the two keys from any metric extractor you maintain.**
+   `compute_content_domain()` ignores unknown keys, so a stale extractor still
+   runs -- it just stops contributing those two measurements.
+3. **Check any downstream scoring profile that overrides content sub-metric
+   weights.** A profile that still declares `match_reference_density` or
+   `tactical_depth_density` will not sum to 1.0 against the six shipped
+   sub-metrics, and its content scores will silently disagree with the base.
+   This is the one migration step the base cannot perform for you.
+4. **Subject-specific metrics belong in a provider**, not in the base Content
+   domain. Nothing in PQS may assume what the podcast is about.
 
 ## Version Changelog
 
-### v3.0 (Current)
+### v3.1 (Current)
+- Removed the two sport-specific Content sub-metrics (Match Reference Density,
+  Tactical Depth Density) and renormalised the remaining six to 1.0
+- Content: 6 sub-metrics, subject-neutral
+- Total: 37 sub-metrics across 5 domains
+- **Breaking:** content and composite scores are not comparable with v3.0.
+  `compute_pqs()` stamps `profile_version` so old artifacts are flagged, not
+  silently compared
+
+### v3.0
 - Added Audio Quality domain (5 sub-metrics)
 - Delivery: 9 sub-metrics focused on fluency and filler management
 - Structure: 8 sub-metrics for episode flow and organization
-- Content: 8 sub-metrics for depth, density, and coverage
+- Content: 8 sub-metrics for depth, density, and coverage (2 sport-specific)
 - Engagement: 9 sub-metrics for retention and dynamics
 - Total: 39 sub-metrics across 5 domains
 

@@ -14,10 +14,8 @@ Covers:
 """
 
 import json
-from datetime import datetime
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, Set
-from unittest import mock
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,14 +23,10 @@ import pytest
 from podcast_intel.triggers.rss_watcher import (
     EpisodeMetadata,
     WatchResult,
+    _load_known_guids_from_json,
     check_new_episodes,
     run_watch,
-    load_known_guids,
-    _extract_audio_url,
-    _extract_file_size,
-    _load_known_guids_from_json,
 )
-
 
 # ---------------------------------------------------------------------------
 #  Helpers -- build realistic feedparser-like objects
@@ -47,8 +41,8 @@ def _make_entry(
     duration: str = "01:05:30",
     summary: str = "First episode of the podcast.",
     file_size: str = "52428800",
-    episode_type: Optional[str] = None,
-) -> Dict[str, Any]:
+    episode_type: str | None = None,
+) -> dict[str, Any]:
     """
     Build a feedparser-style entry dict with enclosures.
 
@@ -77,10 +71,10 @@ def _make_entry(
 
 
 def _make_feed(
-    entries: Optional[List] = None,
+    entries: list | None = None,
     title: str = "My Podcast",
     bozo: bool = False,
-    bozo_exception: Optional[Exception] = None,
+    bozo_exception: Exception | None = None,
 ) -> SimpleNamespace:
     """Build a feedparser-style feed result."""
     feed = SimpleNamespace()

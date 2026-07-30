@@ -41,7 +41,7 @@ import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import requests
@@ -72,7 +72,7 @@ def _load_config() -> dict:
     if config_path.exists():
         try:
             import yaml
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}
         except ImportError:
             pass
@@ -109,7 +109,7 @@ def download_audio(url: str, dest: Path, chunk_size: int = 8192) -> Path:
     return dest
 
 
-def get_episode_audio_url(episode_num: int) -> Optional[str]:
+def get_episode_audio_url(episode_num: int) -> str | None:
     """Look up audio URL for an episode number from the episodes JSON."""
     if not EPISODES_JSON.exists():
         return None
@@ -192,7 +192,7 @@ def diarize_with_pyannote(
 
 def extract_segment_embedding(
     y: np.ndarray, sr: int, start: float, end: float
-) -> Optional[np.ndarray]:
+) -> np.ndarray | None:
     """Extract a fixed-size audio embedding for a time segment using MFCCs."""
     import librosa
 
@@ -255,8 +255,8 @@ def diarize_with_clustering(
     """
     import librosa
     from sklearn.cluster import AgglomerativeClustering
-    from sklearn.preprocessing import StandardScaler
     from sklearn.metrics import silhouette_score
+    from sklearn.preprocessing import StandardScaler
 
     print(f"  Loading audio: {audio_path}")
     y, sr = librosa.load(str(audio_path), sr=16000, mono=True)
@@ -285,9 +285,9 @@ def diarize_with_clustering(
         return []
 
     # Normalize features
-    X = np.array(embeddings)
+    features = np.array(embeddings)
     scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    features_scaled = scaler.fit_transform(features)
 
     # Handle edge case: 1 speaker
     if n_speakers == 1:
@@ -300,10 +300,10 @@ def diarize_with_clustering(
             metric="cosine",
             linkage="average",
         )
-        labels = clustering.fit_predict(X_scaled)
+        labels = clustering.fit_predict(features_scaled)
 
         if len(set(labels)) > 1:
-            sil_score = silhouette_score(X_scaled, labels, metric="cosine")
+            sil_score = silhouette_score(features_scaled, labels, metric="cosine")
         else:
             sil_score = 0.0
 
@@ -439,7 +439,7 @@ def count_fillers(text: str) -> int:
 
 def compute_speaker_metrics(
     enriched_segments: list[dict],
-    speaker_name_map: Optional[dict[str, str]] = None,
+    speaker_name_map: dict[str, str] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """
     Compute per-speaker metrics from enriched transcript segments.
@@ -578,7 +578,6 @@ def run_diarization_pipeline(
     speaker_name_map = {}
     if known_speakers:
         # Heuristic: map by talk-time rank to known speaker list
-        unique_speakers = sorted(set(s["speaker_id"] for s in enriched))
         spk_durations = {}
         for seg in enriched:
             spk = seg["speaker_id"]
@@ -591,7 +590,7 @@ def run_diarization_pipeline(
             else:
                 speaker_name_map[spk_id] = spk_id
 
-        print(f"  Speaker name mapping:")
+        print("  Speaker name mapping:")
         for spk_id, name in speaker_name_map.items():
             dur = spk_durations.get(spk_id, 0)
             print(f"    {spk_id} -> {name} ({dur/60:.1f} min)")

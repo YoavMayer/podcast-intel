@@ -20,7 +20,7 @@ Configuration via podcast.yaml:
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -42,12 +42,12 @@ class TriggerState:
 
     name: str
     enabled: bool = True
-    last_run: Optional[datetime] = None
+    last_run: datetime | None = None
     run_count: int = 0
-    last_error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    last_error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def record_run(self, error: Optional[str] = None) -> None:
+    def record_run(self, error: str | None = None) -> None:
         """
         Record a trigger execution.
 
@@ -75,11 +75,11 @@ class TriggerConfig:
     name: str
     enabled: bool = True
     schedule_cron: str = "*/15 * * * *"
-    pipeline: List[str] = field(default_factory=lambda: ["ingest"])
-    options: Dict[str, Any] = field(default_factory=dict)
+    pipeline: list[str] = field(default_factory=lambda: ["ingest"])
+    options: dict[str, Any] = field(default_factory=dict)
 
 
-def load_triggers(config: Dict[str, Any]) -> List[TriggerConfig]:
+def load_triggers(config: dict[str, Any]) -> list[TriggerConfig]:
     """
     Load trigger configurations from podcast.yaml config dict.
 
@@ -99,7 +99,7 @@ def load_triggers(config: Dict[str, Any]) -> List[TriggerConfig]:
         ...     print(f"{t.name}: enabled={t.enabled}")
     """
     triggers_section = config.get("triggers", {})
-    trigger_configs: List[TriggerConfig] = []
+    trigger_configs: list[TriggerConfig] = []
 
     for name, settings in triggers_section.items():
         if not isinstance(settings, dict):

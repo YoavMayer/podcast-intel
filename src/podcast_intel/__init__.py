@@ -2,10 +2,11 @@
 Podcast Intelligence System
 
 An open-source framework for analyzing and improving podcasts.
-Provides transcription, NLP analysis, semantic search, and coaching insights.
+Provides RSS ingestion, transcription with speaker diarization, delivery and
+filler analysis, and PQS v3 quality scoring.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.4.0"
 __author__ = "Podcast Intel Team"
 
 from podcast_intel.config import Config

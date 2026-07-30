@@ -51,7 +51,7 @@ Runs automatically on every push to `main` and on pull requests.
 # In your repo's .github/workflows/ci.yml
 jobs:
   ci:
-    uses: podcast-intel/podcast-intel/.github/workflows/ci.yml@main
+    uses: YoavMayer/podcast-intel/.github/workflows/ci.yml@main
 ```
 
 ### Episode Watch (`episode-watch.yml`)
@@ -77,7 +77,7 @@ Go to **Actions > Episode Watch > Run workflow** and choose:
 # In your private repo
 jobs:
   watch:
-    uses: podcast-intel/podcast-intel/.github/workflows/episode-watch.yml@main
+    uses: YoavMayer/podcast-intel/.github/workflows/episode-watch.yml@main
     secrets:
       PODCAST_INTEL_RSS_URL: ${{ secrets.MY_RSS_URL }}
 ```
@@ -106,7 +106,7 @@ Go to **Actions > Community Events > Run workflow** and choose:
 # In your private repo
 jobs:
   events:
-    uses: podcast-intel/podcast-intel/.github/workflows/community-events.yml@main
+    uses: YoavMayer/podcast-intel/.github/workflows/community-events.yml@main
     secrets:
       FOOTBALL_DATA_API_KEY: ${{ secrets.MY_FOOTBALL_KEY }}
     with:

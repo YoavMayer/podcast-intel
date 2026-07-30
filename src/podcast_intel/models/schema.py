@@ -11,8 +11,6 @@ Provides functions to create and initialize the database with all tables and ind
 
 import sqlite3
 from pathlib import Path
-from typing import Optional
-
 
 # Complete SQLite schema for podcast intelligence system
 SCHEMA_SQL = """

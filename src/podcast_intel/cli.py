@@ -3,9 +3,6 @@ Command-line interface for Podcast Intelligence System.
 
 Usage:
     podcast-intel ingest          # Fetch RSS and download new episodes
-    podcast-intel transcribe 42   # Transcribe episode 42
-    podcast-intel analyze 42      # Run full analysis on episode 42
-    podcast-intel report 42       # Generate reports for episode 42
     podcast-intel mock            # Generate mock data for testing
     podcast-intel watch           # Check RSS for new episodes (one-shot)
     podcast-intel watch --auto-analyze   # Check + trigger analysis pipeline
@@ -18,11 +15,12 @@ Usage:
 
 import argparse
 import sys
+from typing import Any
 
 from podcast_intel.config import get_config, load_podcast_yaml
 
 
-def cmd_ingest(args):
+def cmd_ingest(args: argparse.Namespace) -> None:
     """Fetch RSS feed and download new episodes."""
     config = get_config()
     if not config.rss_url:
@@ -35,31 +33,13 @@ def cmd_ingest(args):
     print(f"Found {len(episodes)} episodes in RSS feed")
 
 
-def cmd_transcribe(args):
-    """Transcribe an episode."""
-    print(f"Transcribing episode {args.episode}...")
-    print("(Not yet implemented -- use tools/run_episode_analysis.py)")
-
-
-def cmd_analyze(args):
-    """Run analysis on an episode."""
-    print(f"Analyzing episode {args.episode}...")
-    print("(Not yet implemented -- use tools/run_episode_analysis.py)")
-
-
-def cmd_report(args):
-    """Generate reports for an episode."""
-    print(f"Generating report for episode {args.episode}...")
-    print("(Not yet implemented -- use tools/generate_one_pager.py)")
-
-
-def cmd_mock(args):
+def cmd_mock(args: argparse.Namespace) -> None:
     """Generate mock data for testing."""
-    from podcast_intel.ingestion.mock_ingest import generate_mock_episodes, main as mock_main
+    from podcast_intel.ingestion.mock_ingest import main as mock_main
     mock_main()
 
 
-def cmd_watch(args):
+def cmd_watch(args: argparse.Namespace) -> None:
     """Check RSS feed for new episodes and optionally trigger analysis."""
     config = get_config()
 
@@ -91,7 +71,6 @@ def cmd_watch(args):
         elif args.auto_analyze:
             print("\nTriggering analysis pipeline...")
             # Import and run ingest for each new episode
-            from podcast_intel.ingestion.rss_parser import parse_rss_feed
             for ep in result.episodes:
                 print(f"  Ingesting: {ep.title}")
             print("(Full auto-analyze pipeline not yet wired -- use tools/run_episode_analysis.py)")
@@ -106,7 +85,7 @@ def cmd_watch(args):
 #  Events subcommands
 # ---------------------------------------------------------------------------
 
-def _load_events_config():
+def _load_events_config() -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Load community_events trigger configuration from podcast.yaml.
 
@@ -131,7 +110,7 @@ def _load_events_config():
     return ce_config, yaml_config
 
 
-def cmd_events_check(args):
+def cmd_events_check(args: argparse.Namespace) -> None:
     """Check for recent community events."""
     from podcast_intel.triggers.community_events import check_community_events
 
@@ -168,7 +147,7 @@ def cmd_events_check(args):
     print(f"Checked at: {result.checked_at}")
 
 
-def cmd_events_upcoming(args):
+def cmd_events_upcoming(args: argparse.Namespace) -> None:
     """Show upcoming community events."""
     from podcast_intel.triggers.community_events import check_upcoming_events
 
@@ -193,17 +172,17 @@ def cmd_events_upcoming(args):
         print(f"Upcoming events ({result.provider_name}):")
         for event in result.events:
             date_str = event.date[:10] if event.date else "TBD"
-            teams_str = " vs ".join(event.teams) if event.teams else event.summary
-            comp_str = f" ({event.competition})" if event.competition else ""
-            print(f"  - [{date_str}] {teams_str}{comp_str}")
+            who = " / ".join(event.participants) if event.participants else event.summary
+            context_str = f" ({event.context})" if event.context else ""
+            print(f"  - [{date_str}] {who}{context_str}")
     else:
         print(f"No upcoming events found (provider: {result.provider_name}).")
 
 
-def cmd_events_briefing(args):
+def cmd_events_briefing(args: argparse.Namespace) -> None:
     """Generate briefing for a community event."""
-    from podcast_intel.triggers.community_events import check_community_events
     from podcast_intel.triggers.briefing_generator import generate_briefing
+    from podcast_intel.triggers.community_events import check_community_events
 
     ce_config, yaml_config = _load_events_config()
 
@@ -244,12 +223,26 @@ def cmd_events_briefing(args):
     formats = briefing_config.get("formats", ["html"])
     output_dir = briefing_config.get("output_dir", "reports/briefings")
 
+    # Resolve the provider so its talking_points() hook can supply
+    # domain-specific prompts; the briefing falls back to neutral ones.
+    provider = None
+    try:
+        from podcast_intel.triggers.providers import get_provider
+
+        provider = get_provider(
+            result.provider_name,
+            ce_config.get("provider_config", {}),
+        )
+    except Exception as exc:
+        print(f"WARNING: provider unavailable for talking points ({exc}); using generic ones.")
+
     # Generate briefing
     file_paths = generate_briefing(
         event=target_event,
         config=yaml_config,
         formats=formats,
         output_dir=output_dir,
+        provider=provider,
     )
 
     print(f"\nGenerated {len(file_paths)} file(s):")
@@ -257,7 +250,7 @@ def cmd_events_briefing(args):
         print(f"  - {fmt}: {path}")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         prog="podcast-intel",
         description="Podcast Intelligence System -- analyze and improve your podcast",
@@ -267,21 +260,6 @@ def main():
     # ingest
     sub_ingest = subparsers.add_parser("ingest", help="Fetch RSS and download new episodes")
     sub_ingest.set_defaults(func=cmd_ingest)
-
-    # transcribe
-    sub_transcribe = subparsers.add_parser("transcribe", help="Transcribe an episode")
-    sub_transcribe.add_argument("episode", type=int, help="Episode number")
-    sub_transcribe.set_defaults(func=cmd_transcribe)
-
-    # analyze
-    sub_analyze = subparsers.add_parser("analyze", help="Run analysis on an episode")
-    sub_analyze.add_argument("episode", type=int, help="Episode number")
-    sub_analyze.set_defaults(func=cmd_analyze)
-
-    # report
-    sub_report = subparsers.add_parser("report", help="Generate reports for an episode")
-    sub_report.add_argument("episode", type=int, help="Episode number")
-    sub_report.set_defaults(func=cmd_report)
 
     # mock
     sub_mock = subparsers.add_parser("mock", help="Generate mock data for testing")
@@ -296,7 +274,10 @@ def main():
         "--auto-analyze",
         action="store_true",
         default=False,
-        help="Automatically trigger analysis pipeline for new episodes",
+        help=(
+            "List the new episodes that would be analyzed. The analysis pipeline "
+            "is NOT yet wired -- run tools/run_episode_analysis.py per episode."
+        ),
     )
     sub_watch.add_argument(
         "--dry-run",
