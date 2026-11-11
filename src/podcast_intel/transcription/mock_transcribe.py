@@ -11,13 +11,17 @@ simulation. The default language is English but Hebrew and other
 languages can be configured via presets.
 """
 
+import logging
 import random
 from pathlib import Path
 from typing import Any, TypedDict
 
 from podcast_intel.config import get_config
 from podcast_intel.models.database import Database
+from podcast_intel.models.state import TranscriptionStatus
 from podcast_intel.transcription.transcribe import TranscriptionInterface, TranscriptionResult
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # English segment templates organized by conversation category.
@@ -750,8 +754,13 @@ def generate_mock_transcription(db: Database, episode_id: int) -> int:
     segment_db_ids = []
 
     with db.get_connection() as conn:
-        # Mark episode as processing
-        db.update_episode_status(conn, episode_id, "processing")
+        # Mark episode as processing. This whole block is one transaction,
+        # so a "processing" row here can only be left over from a killed
+        # run elsewhere; reset it explicitly rather than hide it.
+        if db.get_episode_status(conn, episode_id) is TranscriptionStatus.PROCESSING:
+            logger.warning("Episode %s was stuck in 'processing'; resetting", episode_id)
+            db.transition_episode_status(conn, episode_id, TranscriptionStatus.PENDING)
+        db.transition_episode_status(conn, episode_id, TranscriptionStatus.PROCESSING)
 
         # Scale timestamps to match episode duration
         generated_duration = result.duration
@@ -812,7 +821,7 @@ def generate_mock_transcription(db: Database, episode_id: int) -> int:
         )
 
         # Mark episode as completed
-        db.update_episode_status(conn, episode_id, "completed")
+        db.transition_episode_status(conn, episode_id, TranscriptionStatus.COMPLETED)
 
     return segment_count
 
@@ -966,7 +975,7 @@ def main() -> None:
         title = episode["title"]
         status = episode["transcription_status"]
 
-        if status == "completed":
+        if TranscriptionStatus.parse(status or "pending") is TranscriptionStatus.COMPLETED:
             print(f"  [{episode_id}] {title} - already transcribed, skipping")
             continue
 
