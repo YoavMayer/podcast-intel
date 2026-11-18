@@ -18,6 +18,7 @@ from faster_whisper import WhisperModel
 
 from podcast_intel.config import get_config
 from podcast_intel.models.database import Database
+from podcast_intel.models.state import TranscriptionStatus
 from podcast_intel.presets import DEFAULT_LANGUAGE
 from podcast_intel.transcription.transcribe import (
     TranscriptionInterface,
@@ -137,10 +138,31 @@ def transcribe_episode(
         compute_type=compute_type,
     )
 
-    # Update episode status
+    # Claim the episode. An illegal move (e.g. already processing or
+    # completed) raises here, before any work is done.
     with db.get_connection() as conn:
-        db.update_episode_status(conn, episode_id, "processing")
+        db.transition_episode_status(conn, episode_id, TranscriptionStatus.PROCESSING)
 
+    try:
+        return _transcribe_and_store(transcriber, audio_path, db, episode_id, model_size)
+    except BaseException:
+        # Segment inserts and the "completed" mark share one transaction, so
+        # a failure leaves no partial rows. Record it instead of leaving the
+        # episode stuck in "processing".
+        with db.get_connection() as conn:
+            if db.get_episode_status(conn, episode_id) is TranscriptionStatus.PROCESSING:
+                db.transition_episode_status(conn, episode_id, TranscriptionStatus.FAILED)
+        raise
+
+
+def _transcribe_and_store(
+    transcriber: "WhisperTranscriber",
+    audio_path: Path,
+    db: Database,
+    episode_id: int,
+    model_size: str,
+) -> dict:
+    """Run the transcriber and store segments; marks the episode completed."""
     print(f"Transcribing {audio_path.name}...")
     start_transcribe = time.time()
 
@@ -196,7 +218,7 @@ def transcribe_episode(
                 print(f"  [{segment_count} segments, {elapsed:.0f}s elapsed, "
                       f"{seg['end']:.0f}s of audio processed]")
 
-        db.update_episode_status(conn, episode_id, "completed")
+        db.transition_episode_status(conn, episode_id, TranscriptionStatus.COMPLETED)
 
     transcribe_time = time.time() - start_transcribe
 
@@ -239,7 +261,11 @@ def download_episode(url: str, output_path: Path) -> Path:
     total = int(resp.headers.get("content-length", 0))
     downloaded = 0
 
-    with open(output_path, "wb") as f:
+    # Stream to a sidecar and move it into place only when complete, so the
+    # "file exists" check above never mistakes a partial download for a
+    # finished one.
+    partial = output_path.with_suffix(output_path.suffix + ".part")
+    with open(partial, "wb") as f:
         for chunk in resp.iter_content(chunk_size=65536):
             f.write(chunk)
             downloaded += len(chunk)
@@ -248,6 +274,7 @@ def download_episode(url: str, output_path: Path) -> Path:
                 print(f"  {downloaded / 1024 / 1024:.0f} MB / "
                       f"{total / 1024 / 1024:.0f} MB ({pct:.0f}%)")
 
+    partial.replace(output_path)
     print(f"Download complete: {output_path} ({downloaded / 1024 / 1024:.1f} MB)")
     return output_path
 

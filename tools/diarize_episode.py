@@ -97,7 +97,9 @@ def download_audio(url: str, dest: Path, chunk_size: int = 8192) -> Path:
     total = int(resp.headers.get("content-length", 0))
 
     downloaded = 0
-    with open(dest, "wb") as f:
+    # Write to a sidecar first: "dest exists" is the done-marker above.
+    partial = dest.with_suffix(dest.suffix + ".part")
+    with open(partial, "wb") as f:
         for chunk in resp.iter_content(chunk_size=chunk_size):
             f.write(chunk)
             downloaded += len(chunk)
@@ -105,6 +107,7 @@ def download_audio(url: str, dest: Path, chunk_size: int = 8192) -> Path:
                 pct = downloaded / total * 100
                 print(f"    {downloaded / 1e6:.1f} / {total / 1e6:.1f} MB ({pct:.0f}%)")
 
+    partial.replace(dest)
     print(f"  Download complete: {dest.stat().st_size / 1e6:.1f} MB")
     return dest
 

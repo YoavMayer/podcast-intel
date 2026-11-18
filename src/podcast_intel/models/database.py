@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .schema import create_all_tables
+from .state import TranscriptionStatus, check_transition
 
 
 def _last_insert_id(cursor: sqlite3.Cursor) -> int:
@@ -199,20 +200,69 @@ class Database:
         return row
 
     def update_episode_status(
-        self, conn: sqlite3.Connection, episode_id: int, status: str
+        self,
+        conn: sqlite3.Connection,
+        episode_id: int,
+        status: str | TranscriptionStatus,
     ) -> None:
         """
-        Update episode transcription status.
+        Set episode transcription status without checking the current one.
+
+        Kept for backward compatibility and for administrative resets. The
+        value must still be a known status. Pipeline code should call
+        :meth:`transition_episode_status`, which rejects illegal moves.
 
         Args:
             conn: Database connection
             episode_id: Episode ID
             status: New status (pending/processing/completed/failed)
         """
+        value = TranscriptionStatus.parse(status).value
         conn.execute(
             "UPDATE episodes SET transcription_status = ?, updated_at = datetime('now') WHERE id = ?",
-            (status, episode_id),
+            (value, episode_id),
         )
+
+    def get_episode_status(
+        self, conn: sqlite3.Connection, episode_id: int
+    ) -> TranscriptionStatus:
+        """
+        Read an episode's transcription status as an enum member.
+
+        Raises:
+            LookupError: if the episode does not exist
+        """
+        row = conn.execute(
+            "SELECT transcription_status FROM episodes WHERE id = ?", (episode_id,)
+        ).fetchone()
+        if row is None:
+            raise LookupError(f"Episode {episode_id} not found")
+        # A NULL status predates the column default; treat it as pending.
+        return TranscriptionStatus.parse(row[0] or TranscriptionStatus.PENDING)
+
+    def transition_episode_status(
+        self,
+        conn: sqlite3.Connection,
+        episode_id: int,
+        new_status: str | TranscriptionStatus,
+    ) -> TranscriptionStatus:
+        """
+        Move an episode to ``new_status`` if the transition table allows it.
+
+        Returns:
+            The previous status.
+
+        Raises:
+            LookupError: if the episode does not exist
+            IllegalTransitionError: if the move is not allowed
+        """
+        current = self.get_episode_status(conn, episode_id)
+        nxt = check_transition(current, new_status)
+        conn.execute(
+            "UPDATE episodes SET transcription_status = ?, updated_at = datetime('now') WHERE id = ?",
+            (nxt.value, episode_id),
+        )
+        return current
 
     def insert_speaker(
         self,

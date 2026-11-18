@@ -224,7 +224,10 @@ def download_audio(audio_url: str, episode_num: int) -> Path:
     total = int(resp.headers.get("content-length", 0))
     downloaded = 0
 
-    with open(dest, "wb") as f:
+    # Write to a sidecar first: "dest exists" is the done-marker above, so a
+    # partial file must never land at dest.
+    partial = dest.with_suffix(dest.suffix + ".part")
+    with open(partial, "wb") as f:
         for chunk in resp.iter_content(chunk_size=8192):
             f.write(chunk)
             downloaded += len(chunk)
@@ -232,6 +235,7 @@ def download_audio(audio_url: str, episode_num: int) -> Path:
                 pct = downloaded / total * 100
                 log(f"  Download: {downloaded / 1e6:.1f}/{total / 1e6:.1f} MB ({pct:.0f}%)")
 
+    partial.replace(dest)
     log(f"Download complete: {dest.stat().st_size / 1e6:.1f} MB")
     return dest
 
@@ -322,11 +326,13 @@ def transcribe_episode(
     elapsed = time.time() - start_time
     log(f"Transcription complete: {len(segments)} segments in {elapsed:.0f}s")
 
-    # Save transcript
-    transcript_path.write_text(
+    # Save transcript atomically: its existence is the skip-marker above.
+    tmp_path = transcript_path.with_suffix(".json.tmp")
+    tmp_path.write_text(
         json.dumps(segments, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+    tmp_path.replace(transcript_path)
     log(f"Saved transcript: {transcript_path}")
 
     # Save plain text version

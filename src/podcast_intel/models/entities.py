@@ -12,20 +12,14 @@ from typing import Any
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
+from podcast_intel.models.state import TranscriptionStatus
+
 
 class EpisodeType(str, Enum):
     """Episode type enumeration."""
     FULL = "full"
     TRAILER = "trailer"
     BONUS = "bonus"
-
-
-class TranscriptionStatus(str, Enum):
-    """Transcription processing status."""
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
 
 
 class EntityType(str, Enum):
